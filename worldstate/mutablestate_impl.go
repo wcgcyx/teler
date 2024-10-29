@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie/utils"
 	"github.com/holiman/uint256"
@@ -83,6 +84,11 @@ func newMutableWorldState(
 		snapshotId:     0,
 		logger:         logger,
 	}
+}
+
+// SetLogger sets the logger for account update hooks.
+func (s *mutableStateImpl) SetLogger(l *tracing.Hooks) {
+	s.logger = l
 }
 
 // loadAccountValue for given address from dirty states or parent.
@@ -330,6 +336,7 @@ func (s *mutableStateImpl) SubBalance(addr common.Address, amt *uint256.Int, rea
 		new.Set(uint256.NewInt(0))
 	}
 	s.recordJournal(acct.SetBalance(new))
+
 	if s.logger != nil && s.logger.OnBalanceChange != nil {
 		s.logger.OnBalanceChange(addr, original.ToBig(), new.ToBig(), reason)
 	}
@@ -344,6 +351,7 @@ func (s *mutableStateImpl) AddBalance(addr common.Address, amt *uint256.Int, rea
 	original := uint256.NewInt(0).Set(acct.Balance())
 	new := uint256.NewInt(0).Add(original, amt)
 	s.recordJournal(acct.SetBalance(new))
+
 	if s.logger != nil && s.logger.OnBalanceChange != nil {
 		s.logger.OnBalanceChange(addr, original.ToBig(), new.ToBig(), reason)
 	}
@@ -358,6 +366,7 @@ func (s *mutableStateImpl) SetBalance(addr common.Address, amt *uint256.Int, rea
 	original := uint256.NewInt(0).Set(acct.Balance())
 	new := amt
 	s.recordJournal(acct.SetBalance(new))
+
 	if s.logger != nil && s.logger.OnBalanceChange != nil {
 		s.logger.OnBalanceChange(addr, original.ToBig(), new.ToBig(), reason)
 	}
@@ -369,6 +378,11 @@ func (s *mutableStateImpl) SetNonce(addr common.Address, nonce uint64) {
 	defer func() { log.Debugf("Mutable - SetNonce(%v, %v) returns void", addr, nonce) }()
 
 	acct := s.loadAccount(addr, true)
+
+	if s.logger != nil && s.logger.OnNonceChange != nil {
+		s.logger.OnNonceChange(addr, acct.Nonce(), nonce)
+	}
+
 	s.recordJournal(acct.SetNonce(nonce))
 }
 
@@ -378,6 +392,12 @@ func (s *mutableStateImpl) SetCode(addr common.Address, code []byte) {
 	defer func() { log.Debugf("Mutable - SetCode(%v, %v) returns void", addr, code) }()
 
 	acct := s.loadAccount(addr, true)
+
+	if s.logger != nil && s.logger.OnCodeChange != nil {
+		prevcode := acct.Code()
+		s.logger.OnCodeChange(addr, acct.CodeHash(), prevcode, crypto.Keccak256Hash(code), code)
+	}
+
 	s.recordJournal(acct.SetCode(code))
 }
 
@@ -387,6 +407,12 @@ func (s *mutableStateImpl) SetState(addr common.Address, key common.Hash, val co
 	defer func() { log.Debugf("Mutable - SetState(%v, %v, %v) returns void", addr, key, val) }()
 
 	acct := s.loadAccount(addr, true)
+
+	if s.logger != nil && s.logger.OnStorageChange != nil {
+		prev := acct.GetState(key)
+		s.logger.OnStorageChange(addr, key, prev, val)
+	}
+
 	s.recordJournal(acct.SetState(key, val))
 }
 
@@ -494,6 +520,11 @@ func (s *mutableStateImpl) SelfDestruct(addr common.Address) {
 	defer func() { log.Debugf("Mutable - SelfDestruct(%v) returns void", addr) }()
 
 	acct := s.loadAccount(addr, true)
+
+	if s.logger != nil && s.logger.OnBalanceChange != nil && acct.Balance().Sign() > 0 {
+		s.logger.OnBalanceChange(addr, acct.Balance().ToBig(), big.NewInt(0), tracing.BalanceDecreaseSelfdestruct)
+	}
+
 	s.recordJournal(acct.SelfDestruct())
 }
 
@@ -624,6 +655,10 @@ func (s *mutableStateImpl) AddLog(logs *types.Log) {
 	logs.Index = s.parent.GetLogSize() + uint(len(s.Logs))
 	s.Logs = append(s.Logs, logs)
 	s.recordJournal(func() { s.Logs = s.Logs[:len(s.Logs)-1] })
+
+	if s.logger != nil && s.logger.OnLog != nil {
+		s.logger.OnLog(logs)
+	}
 }
 
 // AddPreimage records a SHA3 preimage seen by the VM.
@@ -689,9 +724,14 @@ func (s *mutableStateImpl) Finalise(deleteEmptyObjects bool) {
 	log.Debugf("Mutable - Finalise(%v)", deleteEmptyObjects)
 	defer func() { log.Debugf("Mutable - Finalise(%v) returns void", deleteEmptyObjects) }()
 
-	for _, acct := range s.DirtyAccounts {
+	for addr, acct := range s.DirtyAccounts {
 		if deleteEmptyObjects && acct.Empty() {
 			acct.SelfDestruct()
+		}
+
+		// If ether was sent to account post-selfdestruct it is burnt.
+		if bal := acct.Balance(); s.logger != nil && s.logger.OnBalanceChange != nil && acct.HasSelfDestructed() && bal.Sign() != 0 {
+			s.logger.OnBalanceChange(addr, bal.ToBig(), new(big.Int), tracing.BalanceDecreaseSelfdestructBurn)
 		}
 	}
 

@@ -84,9 +84,9 @@ func applyDAOHardFork(worldState worldstate.WorldState) {
 	}
 }
 
-// processBeaconBlockRoot applies the EIP-4788 system call to the beacon block root
+// ProcessBeaconBlockRoot applies the EIP-4788 system call to the beacon block root
 // contract. This method is exported to be used in tests.
-func processBeaconBlockRoot(beaconRoot common.Hash, vmenv *vm.EVM, worldState worldstate.WorldState) {
+func ProcessBeaconBlockRoot(beaconRoot common.Hash, vmenv *vm.EVM, worldState worldstate.WorldState) {
 	// If EIP-4788 is enabled, we need to invoke the beaconroot storage contract with
 	// the new root
 	msg := &core.Message{
@@ -104,8 +104,8 @@ func processBeaconBlockRoot(beaconRoot common.Hash, vmenv *vm.EVM, worldState wo
 	worldState.Finalise(true)
 }
 
-// applyTransaction applies a transaction to state.
-func applyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.GasPool, worldState worldstate.WorldState, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
+// ApplyTransaction applies a transaction to state.
+func ApplyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.GasPool, worldState worldstate.WorldState, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
 	// Create a new context to be used in the EVM environment.
 	txContext := core.NewEVMTxContext(msg)
 	evm.Reset(txContext, worldState)

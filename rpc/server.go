@@ -44,8 +44,13 @@ func NewServer(opts Opts, node *node.Node) (*Server, error) {
 		opts: opts,
 		be:   node.Backend,
 	}
+	traceHandle := &traceAPIHandler{
+		opts: opts,
+		be:   node.Backend,
+	}
 	registerAndSetAlias(rpc, "eth", ethHandle)
 	registerAndSetAlias(rpc, "admin", adminHandle)
+	registerAndSetAlias(rpc, "trace", traceHandle)
 	s := &http.Server{
 		Addr:           fmt.Sprintf("%v:%v", opts.Host, opts.Port),
 		Handler:        rpc,

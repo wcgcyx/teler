@@ -90,6 +90,9 @@ type ReadOnlyWorldState interface {
 type MutableWorldState interface {
 	ReadOnlyWorldState
 
+	// SetLogger sets the logger for account update hooks.
+	SetLogger(l *tracing.Hooks)
+
 	// SetTxContext sets the current transaction hash and index which are
 	// used when the EVM emits new state logs. It should be invoked before
 	// transaction execution.
