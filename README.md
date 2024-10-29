@@ -3,21 +3,21 @@
 Teler Node is a ***T***rust-based ***E***ssential-data ***L***ightweight ***E***thereum ***R***PC Node written in Golang.
 
 # Introduction
-It is expensive to run a Ethereum RPC Node locally. As of today, an Ethereum Full Node on Mainnet typically takes over 1 TB of disk space to run. 
+Running an Ethereum RPC Node locally is expensive. Currently, a full Ethereum Node on the Mainnet typically requires over 1 TB of disk space.
 
-Therefore, developers would need to rely on node providers to query on-chain data or perform transaction simulation such as [Alchemy](https://www.alchemy.com/), [QuickNode](https://www.quicknode.com/), [Infura](https://www.infura.io/) and so on. 
+As a result, developers often rely on external node providers, like [Alchemy](https://www.alchemy.com/), [QuickNode](https://www.quicknode.com/), and [Infura](https://www.infura.io/), to query on-chain data or perform transaction simulations.
 
-Teler node significantly reduces the disk usage by only keeping chain state for the past hour and by getting latest block from a trusted source. Once sync up, a teler node will be able to stay in sync by querying the latest block from a node provider, which can be easily achieved with a free tier subscription.
+The Teler Node offers a cost-effective alternative by significantly reducing disk usage; it retains chain state data only for the past hour and fetches the latest block from a trusted source. Once synced, a Teler Node stays updated by querying the latest block from a node provider, which can easily be managed through a free-tier subscription.
 
-Meanwhile, it is able to serve RPCs that are targeting chain state < an hour. This includes `eth_call`, `eth_estimateGas` and even tracing APIs (_WIP_).
+This setup enables Teler to serve RPC calls that target chain state within the past hour, including `eth_call`, `eth_estimateGas`, and (in progress) tracing APIs.
 
-Teler node can also be used as a way to scale web3 provider. Instead of spining up new Ethereum Nodes to scale, much cheaper teler nodes can be spinned up and connecting to an existing Ethereum Node to stay in sync.
+Additionally, Teler can serve as a scalable solution for Web3 providers. Instead of deploying additional full Ethereum Nodes, cost-efficient Teler Nodes can be spun up and connected to an existing Ethereum Node to maintain sync, reducing both cost and complexity.
 
 _Note: This documentation and teler is still WIP, feel free to reach out for any question._
 
 # Usage
 ## Build
-Building `teler` requires Go >= 1.22.5. To obtain Go, visit [here](https://go.dev/doc/install).
+Building `teler` requires Go >= 1.22.6. To obtain Go, visit [here](https://go.dev/doc/install).
 ```
 git clone https://github.com/wcgcyx/teler.git
 cd teler
