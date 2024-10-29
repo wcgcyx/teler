@@ -100,7 +100,7 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 	// END //
 	if beaconRoot := block.BeaconRoot(); beaconRoot != nil {
 		// START //
-		processBeaconBlockRoot(*beaconRoot, vmenv, worldState)
+		ProcessBeaconBlockRoot(*beaconRoot, vmenv, worldState)
 		// END //
 	}
 	// Iterate over and process the individual transactions
@@ -116,7 +116,7 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 		}
 		// START //
 		worldState.SetTxContext(tx.Hash(), i)
-		receipt, err := applyTransaction(msg, p.config, gp, worldState, blockNumber, blockHash, tx, usedGas, vmenv)
+		receipt, err := ApplyTransaction(msg, p.config, gp, worldState, blockNumber, blockHash, tx, usedGas, vmenv)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}

@@ -9,7 +9,7 @@ As a result, developers often rely on external node providers, like [Alchemy](ht
 
 The Teler Node offers a cost-effective alternative by significantly reducing disk usage; it retains chain state data only for the past hour and fetches the latest block from a trusted source. Once synced, a Teler Node stays updated by querying the latest block from a node provider, which can easily be managed through a free-tier subscription.
 
-This setup enables Teler to serve RPC calls that target chain state within the past hour, including `eth_call`, `eth_estimateGas`, and (in progress) tracing APIs.
+This setup enables Teler to serve RPC calls that target chain state within the past hour, including `eth_call`, `eth_estimateGas`, and tracing APIs.
 
 Additionally, Teler can serve as a scalable solution for Web3 providers. Instead of deploying additional full Ethereum Nodes, cost-efficient Teler Nodes can be spun up and connected to an existing Ethereum Node to maintain sync, reducing both cost and complexity.
 
@@ -52,6 +52,38 @@ teler start --path ./telerdir --blksrc ${HOLESKY_PROVIDER_URL} --rpc-port 9424
 ```
 
 This also serves RPC on `localhost:9424`.
+
+# Supported RPC Methods
+```
+# Ethereum methods
+eth_blobBaseFee
+eth_blockNumber
+eth_call
+eth_chainId
+eth_estimateGas
+eth_getBalance
+eth_getBlockByHash
+eth_getBlockByNumber
+eth_getBlockReceipts
+eth_getBlockTransactionCountByHash
+eth_getBlockTransactionCountByNumber
+eth_getCode
+eth_getStorageAt
+eth_getTransactionByBlockHashAndIndex
+eth_getTransactionByBlockNumberAndIndex
+eth_getTransactionByHash
+eth_getTransactionCount
+eth_getTransactionReceipt
+eth_getUncleByBlockHashAndIndex
+eth_getUncleByBlockNumberAndIndex
+
+# Trace methods
+trace_blockByNumber
+trace_blockByHash
+trace_transaction
+trace_call
+```
+More in progress.
 
 # Contributor
 Zhenyang Shi - wcgcyx@gmail.com

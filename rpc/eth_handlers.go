@@ -21,51 +21,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/wcgcyx/teler/backend"
-	"github.com/wcgcyx/teler/node"
 )
 
 // Note:
 // This is adapted from:
 // 		go-ethereum@v1.14.8/internal/ethapi/api.go
-
-// adminAPIHandler is used to handle admin API.
-type adminAPIHandler struct {
-	opts Opts
-
-	node *node.Node
-	be   backend.Backend
-}
-
-func (h *adminAPIHandler) Pause() error {
-	h.node.Pause()
-	return nil
-}
-
-func (h *adminAPIHandler) Unpause() error {
-	h.node.Unpause()
-	return nil
-}
-
-func (h *adminAPIHandler) DestructStateChild(height uint64, root common.Hash, child common.Hash) error {
-	return h.be.DebugDestructStateChild(height, root, child)
-}
-
-func (h *adminAPIHandler) ForceProcessBlock(ctx context.Context, hash common.Hash) error {
-	exists, err := h.be.Blockchain().HasBlock(ctx, hash)
-	if err != nil {
-		return err
-	}
-	var blk *types.Block
-	if exists {
-		blk, err = h.be.Blockchain().GetBlockByHash(ctx, hash)
-	} else {
-		blk, err = h.node.BlkSrc.BlockByHash(ctx, hash)
-	}
-	if err != nil {
-		return err
-	}
-	return h.be.DebugForceProcessBlock(ctx, blk)
-}
 
 // ethAPIHandler is used to handle eth API.
 type ethAPIHandler struct {
