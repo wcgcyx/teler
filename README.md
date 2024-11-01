@@ -15,7 +15,7 @@ Additionally, Teler can serve as a scalable solution for Web3 providers. Instead
 
 _Note: This documentation and teler is still WIP, feel free to reach out for any question._
 
-# Disk usage
+# Datadir size
 The following table summarises the disk usage of Teler compared with Erigon (with `--prune=hrtc`).
 |          Network      |   Teler   |   Erigon   |
 | :-------------------: | :-------: |  :-------: |
