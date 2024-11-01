@@ -105,10 +105,6 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 	}
 	// Iterate over and process the individual transactions
 	var lastGas uint64 = 0
-	// cc, err := ethclient.Dial("https://eth-mainnet.g.alchemy.com/v2/6-OEoIaepTc4jNGfZ21VkHfO5cxXUi94")
-	// if err != nil {
-	// 	return nil, nil, 0, err
-	// }
 	for i, tx := range block.Transactions() {
 		msg, err := core.TransactionToMessage(tx, signer, header.BaseFee)
 		if err != nil {
@@ -121,14 +117,6 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
 		log.Debugf("Txn %v, Used gas: %v, status %v", tx.Hash(), *usedGas-lastGas, receipt.Status)
-		// rr, err := cc.TransactionReceipt(ctx, tx.Hash())
-		// if err != nil {
-		// 	return nil, nil, 0, err
-		// }
-		// if rr.GasUsed != *usedGas-lastGas {
-		// 	log.Infof("Tx %v local %v remote %v", tx.Hash(), *usedGas-lastGas, rr.GasUsed)
-		// 	return nil, nil, 0, fmt.Errorf("fail now")
-		// }
 		lastGas = *usedGas
 		// END //
 		receipts = append(receipts, receipt)
