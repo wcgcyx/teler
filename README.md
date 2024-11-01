@@ -15,6 +15,14 @@ Additionally, Teler can serve as a scalable solution for Web3 providers. Instead
 
 _Note: This documentation and teler is still WIP, feel free to reach out for any question._
 
+# Datadir size
+The following table summarises the disk usage of a synced Teler compared with Erigon (with `--prune=hrtc`).
+|          Network      |   Teler   |   Erigon   |
+| :-------------------: | :-------: |  :-------: |
+|         Mainnet       |   TBD     |    TBD     |
+|         Sepolia       |   TBD     |    TBD     |
+|  Holesky (1/Nov/2024) |   31G     |    177G    |
+
 # Usage
 ## Build
 Building `teler` requires Go >= 1.22.6. To obtain Go, visit [here](https://go.dev/doc/install).
