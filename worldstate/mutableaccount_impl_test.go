@@ -416,12 +416,6 @@ func TestSetNonceOnNonExistedAccount(t *testing.T) {
 }
 
 func TestSetNonceOnDeletingAccount(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("should panic")
-		}
-	}()
-
 	acct := newMutableAccountImpl(
 		nil,
 		common.HexToAddress(testAcctStr),
@@ -436,6 +430,7 @@ func TestSetNonceOnDeletingAccount(t *testing.T) {
 		make(map[common.Hash]common.Hash))
 
 	acct.SetNonce(1)
+	assert.Equal(t, uint64(1), acct.Nonce())
 }
 
 func TestSetNonceOnUpdatingAccount(t *testing.T) {
