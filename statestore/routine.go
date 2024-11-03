@@ -11,13 +11,10 @@ package statestore
  */
 
 import (
-	"encoding/base64"
-	"fmt"
-	"strconv"
+	"encoding/binary"
 	"time"
 
-	"github.com/ipfs/go-datastore"
-	"github.com/ipfs/go-datastore/query"
+	"github.com/syndtr/goleveldb/leveldb/util"
 )
 
 func (s *stateStoreImpl) gcRoutine() {
@@ -36,88 +33,69 @@ func (s *stateStoreImpl) gcRoutine() {
 			totalCleanedAccts := 0
 			totalCleanedSlots := 0
 			func() {
-				tempRes, err := s.ds.Query(s.routineCtx, query.Query{
-					Prefix:   gcKey,
-					KeysOnly: true,
-				})
-				if err != nil {
-					log.Warnf("GC - Fail to query ds: %v", err.Error())
-					return
-				}
-				defer tempRes.Close()
-				for {
+				iter := s.ds.NewIterator(util.BytesPrefix([]byte(gcKey)), nil)
+				for iter.Next() {
 					if s.routineCtx.Err() != nil {
 						log.Warnf("Exit GC round due to context cancelled: %v", s.routineCtx.Err().Error())
 						return
 					}
-					e, ok := tempRes.NextSync()
-					if !ok {
-						break
-					}
-					if e.Error != nil {
-						log.Warnf("GC - Fail to get next entry: %v", e.Error.Error())
-						return
-					}
-					if len(e.Key) <= 1 {
-						log.Warnf("GC - Key smaller than 1: %v", e.Key)
-						continue
-					}
-					addr, version := splitGCKey(e.Key[1:])
+					addr, version := splitGCKey(iter.Key())
 					clearedSlots := 0
 					// Clear all storages involved with this version
-					txn, err := s.ds.Batch(s.routineCtx)
+					txn, err := s.ds.OpenTransaction()
 					if err != nil {
 						log.Warnf("GC - Fail to create batch to clear %v-%v: %v", addr, version, err.Error())
 						continue
 					}
+					defer txn.Discard()
 					err = func() error {
-						addrStr := base64.URLEncoding.EncodeToString(addr.Bytes())
-						tempRes2, err2 := s.ds.Query(s.routineCtx, query.Query{
-							Prefix:   storageKey + separator + addrStr + separator + strconv.FormatUint(version, 10),
-							KeysOnly: true,
-						})
-						if err2 != nil {
-							return err2
-						}
-						defer tempRes2.Close()
-						for {
+						b := make([]byte, 8)
+						binary.LittleEndian.PutUint64(b, version)
+						prefix := append([]byte(storageKey+separator), addr.Bytes()...)
+						prefix = append(prefix, []byte(separator)...)
+						prefix = append(prefix, b...)
+						prefix = append(prefix, []byte(separator)...)
+						iter2 := s.ds.NewIterator(util.BytesPrefix(prefix), nil)
+						for iter2.Next() {
 							if s.routineCtx.Err() != nil {
 								return s.routineCtx.Err()
 							}
-							e2, ok2 := tempRes2.NextSync()
-							if !ok2 {
-								return nil
-							}
-							if e2.Error != nil {
-								return e2.Error
-							}
-							if len(e2.Key) <= 1 {
-								return fmt.Errorf("key smaller than 1: %v", e.Key)
-							}
-							_, _, k := splitStorageKey(e2.Key[1:])
-							err = txn.Delete(s.routineCtx, getStorageKey(addr, version, k))
+							_, _, k := splitStorageKey(iter2.Key())
+							err = txn.Delete(getStorageKey(addr, version, k), nil)
 							if err != nil {
 								return err
 							}
 							clearedSlots++
 						}
+						iter2.Release()
+						err := iter2.Error()
+						if err != nil {
+							return err
+						}
+						return nil
 					}()
 					if err != nil {
 						log.Warnf("GC - Fail to clear %v-%v: %v", addr, version, err.Error())
 						continue
 					}
-					err = txn.Delete(s.routineCtx, datastore.NewKey(e.Key))
+					err = txn.Delete(iter.Key(), nil)
 					if err != nil {
 						log.Warnf("GC - Fail to clear gc entry %v-%v: %v", addr, version, err.Error())
 						continue
 					}
-					err = txn.Commit(s.routineCtx)
+					err = txn.Commit()
 					if err != nil {
 						log.Warnf("GC - Fail to commit to clear %v-%v: %v", addr, version, err.Error())
 						continue
 					}
 					totalCleanedAccts++
 					totalCleanedSlots += clearedSlots
+				}
+				iter.Release()
+				err := iter.Error()
+				if err != nil {
+					log.Warnf("GC - Fail to query ds: %v", err.Error())
+					return
 				}
 			}()
 			log.Infof("GC round cleared %v accounts with %v storage slots", totalCleanedAccts, totalCleanedSlots)

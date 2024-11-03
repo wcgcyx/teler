@@ -12,12 +12,11 @@ package blockchain
 
 import (
 	"bytes"
-	"strconv"
+	"encoding/binary"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rlp"
-	"github.com/ipfs/go-datastore"
 	"github.com/mus-format/mus-go"
 	"github.com/mus-format/mus-go/ord"
 	"github.com/mus-format/mus-go/varint"
@@ -37,43 +36,45 @@ const (
 )
 
 // getBlockKey gets the datastore key for given block hash.
-func getBlockKey(hash common.Hash) datastore.Key {
-	return datastore.NewKey(blockKey + separator + hash.Hex())
+func getBlockKey(hash common.Hash) []byte {
+	return append([]byte(blockKey+separator), hash.Bytes()...)
 }
 
 // getTransactionKey gets the datastore key for given txn hash.
-func getTransactionKey(hash common.Hash) datastore.Key {
-	return datastore.NewKey(transactionKey + separator + hash.Hex())
+func getTransactionKey(hash common.Hash) []byte {
+	return append([]byte(transactionKey+separator), hash.Bytes()...)
 }
 
 // getReceiptKey gets the datastore key for receipt of given txn hash.
-func getReceiptKey(hash common.Hash) datastore.Key {
-	return datastore.NewKey(receiptKey + separator + hash.Hex())
+func getReceiptKey(hash common.Hash) []byte {
+	return append([]byte(receiptKey+separator), hash.Bytes()...)
 }
 
 // getForkKey gets the datastore key for given fork number.
-func getForkKey(height uint64) datastore.Key {
-	return datastore.NewKey(forkKey + separator + strconv.FormatUint(height, 10))
+func getForkKey(height uint64) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, height)
+	return append([]byte(transactionKey+separator), b...)
 }
 
 // getTailKey gets the datastore key for tail block.
-func getTailKey() datastore.Key {
-	return datastore.NewKey(tailKey)
+func getTailKey() []byte {
+	return []byte(tailKey)
 }
 
 // getHeadKey gets the datastore key for head block.
-func getHeadKey() datastore.Key {
-	return datastore.NewKey(headKey)
+func getHeadKey() []byte {
+	return []byte(headKey)
 }
 
 // getFinalizedKey gets the datastore key for finalized block.
-func getFinalizedKey() datastore.Key {
-	return datastore.NewKey(finalizedKey)
+func getFinalizedKey() []byte {
+	return []byte(finalizedKey)
 }
 
 // getSafeKey gets the datastore key for safe block.
-func getSafeKey() datastore.Key {
-	return datastore.NewKey(safeKey)
+func getSafeKey() []byte {
+	return []byte(safeKey)
 }
 
 // encodeBlock encodes block to bytes.

@@ -18,10 +18,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ipfs/go-datastore"
-	badgerds "github.com/ipfs/go-ds-badger2"
 	logging "github.com/ipfs/go-log"
 	"github.com/mus-format/mus-go/varint"
+	"github.com/syndtr/goleveldb/leveldb"
+	lerrors "github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	itypes "github.com/wcgcyx/teler/types"
 )
 
@@ -31,24 +32,17 @@ var log = logging.Logger("blockchain")
 // blockchainImpl implements Blockchain.
 type blockchainImpl struct {
 	opts Opts
-	ds   *badgerds.Datastore
+	ds   *leveldb.DB
 
 	tail uint64
 }
 
 // NewBlockchainImpl creates a new Blockchain.
-func NewBlockchainImpl(ctx context.Context, opts Opts, genesis *core.Genesis) (Blockchain, error) {
-	dsopts := badgerds.DefaultOptions
-	dsopts.SyncWrites = false
-	dsopts.Truncate = true
-	// Use max table size of 64MiB
-	dsopts.Options.MaxTableSize = 64 << 20
-	// Use block cache size of 64MiB
-	dsopts.Options.BlockCacheSize = 64 << 20
+func NewBlockchainImpl(_ context.Context, opts Opts, genesis *core.Genesis) (Blockchain, error) {
 	if opts.Path == "" {
 		return nil, fmt.Errorf("empty path provided")
 	}
-	ds, err := badgerds.NewDatastore(opts.Path, &dsopts)
+	ds, err := leveldb.OpenFile(opts.Path, &opt.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +50,7 @@ func NewBlockchainImpl(ctx context.Context, opts Opts, genesis *core.Genesis) (B
 		opts: opts,
 		ds:   ds,
 	}
-	val, err := res.ds.Get(ctx, getTailKey())
+	val, err := res.ds.Get(getTailKey(), nil)
 	if err == nil {
 		tail, _, err := varint.UnmarshalUint64(val)
 		if err != nil {
@@ -67,42 +61,42 @@ func NewBlockchainImpl(ctx context.Context, opts Opts, genesis *core.Genesis) (B
 		res.tail = tail
 		return res, nil
 	}
-	if !errors.Is(err, datastore.ErrNotFound) {
+	if !errors.Is(err, lerrors.ErrNotFound) {
 		return nil, err
 	}
 	log.Infof("No existing ds detected, starting from genesis...")
 	// Write genesis block to block, forks, head and tail.
-	txn, err := res.ds.NewTransaction(ctx, false)
+	txn, err := res.ds.OpenTransaction()
 	if err != nil {
 		return nil, err
 	}
-	defer txn.Discard(ctx)
+	defer txn.Discard()
 
 	genesisBlk := genesis.ToBlock()
 
 	size := varint.SizeUint64(0)
 	bs := make([]byte, size)
 	varint.MarshalUint64(0, bs)
-	err = txn.Put(ctx, getTailKey(), bs)
+	err = txn.Put(getTailKey(), bs, nil)
 	if err != nil {
 		return nil, err
 	}
 	size = itypes.SizeHash(genesisBlk.Hash())
 	bs = make([]byte, size)
 	itypes.MarshalHash(genesisBlk.Hash(), bs)
-	err = txn.Put(ctx, getHeadKey(), bs)
+	err = txn.Put(getHeadKey(), bs, nil)
 	if err != nil {
 		return nil, err
 	}
-	err = txn.Put(ctx, getForkKey(0), encodeForks([]common.Hash{genesisBlk.Hash(), genesisBlk.Hash()}))
+	err = txn.Put(getForkKey(0), encodeForks([]common.Hash{genesisBlk.Hash(), genesisBlk.Hash()}), nil)
 	if err != nil {
 		return nil, err
 	}
-	err = txn.Put(ctx, getBlockKey(genesisBlk.Hash()), encodeBlock(genesisBlk))
+	err = txn.Put(getBlockKey(genesisBlk.Hash()), encodeBlock(genesisBlk), nil)
 	if err != nil {
 		return nil, err
 	}
-	err = txn.Commit(ctx)
+	err = txn.Commit()
 	if err != nil {
 		return nil, err
 	}
@@ -112,19 +106,13 @@ func NewBlockchainImpl(ctx context.Context, opts Opts, genesis *core.Genesis) (B
 }
 
 // HasBlock returns if blockchain contains the block corresponding to the block hash.
-func (bc *blockchainImpl) HasBlock(ctx context.Context, hash common.Hash) (bool, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
-	return bc.ds.Has(subCtx, getBlockKey(hash))
+func (bc *blockchainImpl) HasBlock(_ context.Context, hash common.Hash) (bool, error) {
+	return bc.ds.Has(getBlockKey(hash), nil)
 }
 
 // GetBlockByHash returns the block corresponding to the block hash.
-func (bc *blockchainImpl) GetBlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := bc.ds.Get(subCtx, getBlockKey(hash))
+func (bc *blockchainImpl) GetBlockByHash(_ context.Context, hash common.Hash) (*types.Block, error) {
+	val, err := bc.ds.Get(getBlockKey(hash), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -133,11 +121,8 @@ func (bc *blockchainImpl) GetBlockByHash(ctx context.Context, hash common.Hash) 
 
 // GetBlockByNumber returns the block corresponding to the block height.
 func (bc *blockchainImpl) GetBlockByNumber(ctx context.Context, height uint64) (*types.Block, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
 	// Get fork first
-	forks, err := bc.getForks(subCtx, height)
+	forks, err := bc.getForks(ctx, height)
 	if err != nil {
 		return nil, err
 	}
@@ -148,7 +133,7 @@ func (bc *blockchainImpl) GetBlockByNumber(ctx context.Context, height uint64) (
 	if forks[0].Cmp(common.Hash{}) == 0 {
 		return nil, fmt.Errorf("fork for %v has no block on canonical chain", height)
 	}
-	return bc.GetBlockByHash(subCtx, forks[0])
+	return bc.GetBlockByHash(ctx, forks[0])
 }
 
 // GetHeaderByHash returns the header corresponding to the block hash.
@@ -170,13 +155,10 @@ func (bc *blockchainImpl) GetHeaderByNumber(ctx context.Context, height uint64) 
 }
 
 // GetTransaction gets the transaction for given tx hash.
-func (bc *blockchainImpl) GetTransaction(ctx context.Context, hash common.Hash) (*types.Transaction, common.Hash, uint64, bool, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := bc.ds.Get(subCtx, getTransactionKey(hash))
+func (bc *blockchainImpl) GetTransaction(_ context.Context, hash common.Hash) (*types.Transaction, common.Hash, uint64, bool, error) {
+	val, err := bc.ds.Get(getTransactionKey(hash), nil)
 	if err != nil {
-		if errors.Is(err, datastore.ErrNotFound) {
+		if errors.Is(err, lerrors.ErrNotFound) {
 			return nil, common.Hash{}, 0, false, nil
 		}
 		return nil, common.Hash{}, 0, false, err
@@ -187,13 +169,10 @@ func (bc *blockchainImpl) GetTransaction(ctx context.Context, hash common.Hash) 
 }
 
 // GetReceipt gets the receipt for given tx hash.
-func (bc *blockchainImpl) GetReceipt(ctx context.Context, hash common.Hash) (*types.Receipt, common.Hash, uint64, bool, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := bc.ds.Get(subCtx, getReceiptKey(hash))
+func (bc *blockchainImpl) GetReceipt(_ context.Context, hash common.Hash) (*types.Receipt, common.Hash, uint64, bool, error) {
+	val, err := bc.ds.Get(getReceiptKey(hash), nil)
 	if err != nil {
-		if errors.Is(err, datastore.ErrNotFound) {
+		if errors.Is(err, lerrors.ErrNotFound) {
 			return nil, common.Hash{}, 0, false, nil
 		}
 		return nil, common.Hash{}, 0, false, err
@@ -205,10 +184,7 @@ func (bc *blockchainImpl) GetReceipt(ctx context.Context, hash common.Hash) (*ty
 
 // GetHead returns the head block.
 func (bc *blockchainImpl) GetHead(ctx context.Context) (*types.Block, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := bc.ds.Get(subCtx, getHeadKey())
+	val, err := bc.ds.Get(getHeadKey(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -217,17 +193,14 @@ func (bc *blockchainImpl) GetHead(ctx context.Context) (*types.Block, error) {
 	if err != nil {
 		return nil, err
 	}
-	return bc.GetBlockByHash(subCtx, hash)
+	return bc.GetBlockByHash(ctx, hash)
 }
 
 // GetHead returns the finalized block.
 func (bc *blockchainImpl) GetFinalized(ctx context.Context) (*types.Block, bool, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := bc.ds.Get(subCtx, getFinalizedKey())
+	val, err := bc.ds.Get(getFinalizedKey(), nil)
 	if err != nil {
-		if errors.Is(err, datastore.ErrNotFound) {
+		if errors.Is(err, lerrors.ErrNotFound) {
 			return nil, false, nil
 		}
 		return nil, false, err
@@ -238,7 +211,7 @@ func (bc *blockchainImpl) GetFinalized(ctx context.Context) (*types.Block, bool,
 		return nil, false, err
 	}
 
-	blk, err := bc.GetBlockByHash(subCtx, hash)
+	blk, err := bc.GetBlockByHash(ctx, hash)
 	if err != nil {
 		return nil, false, err
 	}
@@ -247,12 +220,9 @@ func (bc *blockchainImpl) GetFinalized(ctx context.Context) (*types.Block, bool,
 
 // GetSafe returns the safe block.
 func (bc *blockchainImpl) GetSafe(ctx context.Context) (*types.Block, bool, error) {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := bc.ds.Get(subCtx, getSafeKey())
+	val, err := bc.ds.Get(getSafeKey(), nil)
 	if err != nil {
-		if errors.Is(err, datastore.ErrNotFound) {
+		if errors.Is(err, lerrors.ErrNotFound) {
 			return nil, false, nil
 		}
 		return nil, false, err
@@ -263,7 +233,7 @@ func (bc *blockchainImpl) GetSafe(ctx context.Context) (*types.Block, bool, erro
 		return nil, false, err
 	}
 
-	blk, err := bc.GetBlockByHash(subCtx, hash)
+	blk, err := bc.GetBlockByHash(ctx, hash)
 	if err != nil {
 		return nil, false, err
 	}
@@ -272,9 +242,6 @@ func (bc *blockchainImpl) GetSafe(ctx context.Context) (*types.Block, bool, erro
 
 // AddBlock adds a *validated* block to the blockchain.
 func (bc *blockchainImpl) AddBlock(ctx context.Context, blk *types.Block, receipts types.Receipts) error {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.WriteTimeout)
-	defer cancel()
-
 	parentHash := blk.ParentHash()
 	hash := blk.Hash()
 	if blk.NumberU64() < bc.tail {
@@ -282,7 +249,7 @@ func (bc *blockchainImpl) AddBlock(ctx context.Context, blk *types.Block, receip
 		return nil
 	}
 	// Check if block exists
-	exists, err := bc.HasBlock(subCtx, hash)
+	exists, err := bc.HasBlock(ctx, hash)
 	if err != nil {
 		return err
 	}
@@ -291,7 +258,7 @@ func (bc *blockchainImpl) AddBlock(ctx context.Context, blk *types.Block, receip
 		return nil
 	}
 	// Check if parent exist
-	exists, err = bc.HasBlock(subCtx, parentHash)
+	exists, err = bc.HasBlock(ctx, parentHash)
 	if err != nil {
 		return err
 	}
@@ -307,36 +274,36 @@ func (bc *blockchainImpl) AddBlock(ctx context.Context, blk *types.Block, receip
 		}
 	}
 
-	txn, err := bc.ds.NewTransaction(subCtx, false)
+	txn, err := bc.ds.OpenTransaction()
 	if err != nil {
 		return err
 	}
-	defer txn.Discard(subCtx)
+	defer txn.Discard()
 
 	// Put block
-	err = txn.Put(subCtx, getBlockKey(hash), encodeBlock(blk))
+	err = txn.Put(getBlockKey(hash), encodeBlock(blk), nil)
 	if err != nil {
 		return err
 	}
 
 	// Update fork
-	forks, err := bc.getForks(subCtx, blk.NumberU64())
+	forks, err := bc.getForks(ctx, blk.NumberU64())
 	if err != nil {
-		if !errors.Is(err, datastore.ErrNotFound) {
+		if !errors.Is(err, lerrors.ErrNotFound) {
 			return err
 		}
 		forks = make([]common.Hash, 0)
 		forks = append(forks, common.Hash{})
 	}
 	forks = append(forks, hash)
-	err = txn.Put(subCtx, getForkKey(blk.NumberU64()), encodeForks(forks))
+	err = txn.Put(getForkKey(blk.NumberU64()), encodeForks(forks), nil)
 	if err != nil {
 		return err
 	}
 
 	// Put transaction
 	for index, t := range blk.Transactions() {
-		err = txn.Put(subCtx, getTransactionKey(t.Hash()), encodeTransaction(t, blk.Hash(), uint64(index)))
+		err = txn.Put(getTransactionKey(t.Hash()), encodeTransaction(t, blk.Hash(), uint64(index)), nil)
 		if err != nil {
 			return err
 		}
@@ -344,13 +311,13 @@ func (bc *blockchainImpl) AddBlock(ctx context.Context, blk *types.Block, receip
 
 	// Put receipt
 	for index, r := range receipts {
-		err = txn.Put(subCtx, getReceiptKey(r.TxHash), encodeReceipt(r, blk.Hash(), uint64(index)))
+		err = txn.Put(getReceiptKey(r.TxHash), encodeReceipt(r, blk.Hash(), uint64(index)), nil)
 		if err != nil {
 			return err
 		}
 	}
 
-	err = txn.Commit(subCtx)
+	err = txn.Commit()
 	if err != nil {
 		return err
 	}
@@ -370,19 +337,17 @@ func (bc *blockchainImpl) tryPrune(ctx context.Context, height uint64) {
 	newTail := bc.tail + bc.opts.PruningFrequency
 	for i := bc.tail; i < newTail; i++ {
 		func() {
-			subCtx, cancel := context.WithTimeout(ctx, bc.opts.WriteTimeout)
-			defer cancel()
-			txn, err := bc.ds.NewTransaction(subCtx, false)
+			txn, err := bc.ds.OpenTransaction()
 			if err != nil {
 				log.Warnf("Fail to start new transaction to prune: %v", err.Error())
 				return
 			}
-			defer txn.Discard(subCtx)
+			defer txn.Discard()
 
 			// Get forks
-			forks, err := bc.getForks(subCtx, i)
+			forks, err := bc.getForks(ctx, i)
 			if err != nil {
-				if !errors.Is(err, datastore.ErrNotFound) {
+				if !errors.Is(err, lerrors.ErrNotFound) {
 					// Skip pruned forks
 					return
 				}
@@ -391,25 +356,25 @@ func (bc *blockchainImpl) tryPrune(ctx context.Context, height uint64) {
 			}
 			for _, fork := range forks {
 				// Get block
-				blk, err := bc.GetBlockByHash(subCtx, fork)
+				blk, err := bc.GetBlockByHash(ctx, fork)
 				if err != nil {
 					log.Errorf("Fail to get block %v: %v", fork, err.Error())
 					return
 				}
 				// Delete block
-				err = txn.Delete(subCtx, getBlockKey(fork))
+				err = txn.Delete(getBlockKey(fork), nil)
 				if err != nil {
 					log.Errorf("Fail to remove block %v: %v", fork, err.Error())
 					return
 				}
 				// Delete transactions & receipts
 				for _, t := range blk.Transactions() {
-					err = txn.Delete(subCtx, getTransactionKey(t.Hash()))
+					err = txn.Delete(getTransactionKey(t.Hash()), nil)
 					if err != nil {
 						log.Errorf("Fail to remove transaction %v in block %v: %v", t.Hash(), fork, err.Error())
 						return
 					}
-					err = txn.Delete(subCtx, getReceiptKey(t.Hash()))
+					err = txn.Delete(getReceiptKey(t.Hash()), nil)
 					if err != nil {
 						log.Errorf("Fail to remove receipt of transaction %v in block %v: %v", t.Hash(), fork, err.Error())
 						return
@@ -419,12 +384,12 @@ func (bc *blockchainImpl) tryPrune(ctx context.Context, height uint64) {
 				numBlksPruned++
 			}
 			// Delete forks
-			err = txn.Delete(subCtx, getForkKey(i))
+			err = txn.Delete(getForkKey(i), nil)
 			if err != nil {
 				log.Errorf("Fail to delete fork data for %v: %v", i, err.Error())
 				return
 			}
-			err = txn.Commit(subCtx)
+			err = txn.Commit()
 			if err != nil {
 				log.Errorf("Fail to commit to prune blocks at %v: %v", i, err.Error())
 				return
@@ -433,12 +398,10 @@ func (bc *blockchainImpl) tryPrune(ctx context.Context, height uint64) {
 	}
 
 	// Update new tail
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.WriteTimeout)
-	defer cancel()
 	size := varint.SizeUint64(newTail)
 	bs := make([]byte, size)
 	varint.MarshalUint64(newTail, bs)
-	err := bc.ds.Put(subCtx, getTailKey(), bs)
+	err := bc.ds.Put(getTailKey(), bs, nil)
 	if err != nil {
 		log.Errorf("Fail to update tail from %v to %v: %v", bc.tail, newTail, err.Error())
 		return
@@ -450,23 +413,20 @@ func (bc *blockchainImpl) tryPrune(ctx context.Context, height uint64) {
 
 // SetHead sets the head of the chain.
 func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
-	// Get the current head
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.WriteTimeout)
-	defer cancel()
-
 	// Check if this block exists
-	blk, err := bc.GetBlockByHash(subCtx, hash)
+	blk, err := bc.GetBlockByHash(ctx, hash)
 	if err != nil {
 		return err
 	}
 
-	txn, err := bc.ds.NewTransaction(subCtx, false)
+	txn, err := bc.ds.OpenTransaction()
 	if err != nil {
 		return err
 	}
-	defer txn.Discard(subCtx)
+	defer txn.Discard()
 
-	val, err := bc.ds.Get(subCtx, getHeadKey())
+	// Get the current head
+	val, err := bc.ds.Get(getHeadKey(), nil)
 	if err != nil {
 		// This should never happen.
 		return err
@@ -477,7 +437,7 @@ func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
 	if err != nil {
 		return err
 	}
-	currentHead, err := bc.GetBlockByHash(subCtx, currentHeadHash)
+	currentHead, err := bc.GetBlockByHash(ctx, currentHeadHash)
 	if err != nil {
 		return err
 	}
@@ -486,32 +446,32 @@ func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
 		// Clear canonical chain from current head to blk number + 1.
 		for i := blk.NumberU64() + 1; i <= currentHead.NumberU64(); i++ {
 			// Get forks
-			forks, err := bc.getForks(subCtx, i)
+			forks, err := bc.getForks(ctx, i)
 			if err != nil {
 				log.Errorf("Fail to get fork data for %v: %v", i, err.Error())
 				return err
 			}
 			forks[0] = common.Hash{}
-			err = txn.Put(subCtx, getForkKey(i), encodeForks(forks))
+			err = txn.Put(getForkKey(i), encodeForks(forks), nil)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	// Get forks for new head
-	forks, err := bc.getForks(subCtx, blk.NumberU64())
+	forks, err := bc.getForks(ctx, blk.NumberU64())
 	if err != nil {
 		log.Errorf("Fail to get fork data for %v: %v", blk.NumberU64(), err.Error())
 		return err
 	}
 	forks[0] = blk.Hash()
-	err = txn.Put(subCtx, getForkKey(blk.NumberU64()), encodeForks(forks))
+	err = txn.Put(getForkKey(blk.NumberU64()), encodeForks(forks), nil)
 	if err != nil {
 		return err
 	}
 	// Set canonical chain from new head to a node that's on canonical chain.
 	parentBlkHash := blk.ParentHash()
-	parentBlk, err := bc.GetBlockByHash(subCtx, parentBlkHash)
+	parentBlk, err := bc.GetBlockByHash(ctx, parentBlkHash)
 	if err != nil {
 		return err
 	}
@@ -519,7 +479,7 @@ func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
 	if parentHeight < bc.tail {
 		return fmt.Errorf("parent height %v is lower than blockchain tail %v, a major reorg occured", parentHeight, bc.tail)
 	}
-	parentForks, err := bc.getForks(subCtx, parentHeight)
+	parentForks, err := bc.getForks(ctx, parentHeight)
 	if err != nil {
 		log.Errorf("Fail to get fork data for %v: %v", parentHeight, err.Error())
 		return err
@@ -529,13 +489,13 @@ func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
 			log.Infof("Canonical chain at height %v reorg from %v to %v", parentHeight, parentForks[0], parentBlkHash)
 		}
 		parentForks[0] = parentBlkHash
-		err = txn.Put(subCtx, getForkKey(parentHeight), encodeForks(parentForks))
+		err = txn.Put(getForkKey(parentHeight), encodeForks(parentForks), nil)
 		if err != nil {
 			return err
 		}
 		// Get grandparent
 		grandparentBlkHash := parentBlk.ParentHash()
-		grandparentBlk, err := bc.GetBlockByHash(subCtx, grandparentBlkHash)
+		grandparentBlk, err := bc.GetBlockByHash(ctx, grandparentBlkHash)
 		if err != nil {
 			return err
 		}
@@ -543,7 +503,7 @@ func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
 		if grandparentHeight < bc.tail {
 			return fmt.Errorf("grandparent height %v is lower than blockchain tail %v, a major reorg occured", grandparentHeight, bc.tail)
 		}
-		grandparentForks, err := bc.getForks(subCtx, grandparentHeight)
+		grandparentForks, err := bc.getForks(ctx, grandparentHeight)
 		if err != nil {
 			log.Errorf("Fail to get fork data for %v: %v", grandparentHeight, err.Error())
 			return err
@@ -557,11 +517,11 @@ func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
 	size := itypes.SizeHash(hash)
 	bs := make([]byte, size)
 	itypes.MarshalHash(hash, bs)
-	err = txn.Put(subCtx, getHeadKey(), bs)
+	err = txn.Put(getHeadKey(), bs, nil)
 	if err != nil {
 		return err
 	}
-	err = txn.Commit(subCtx)
+	err = txn.Commit()
 	if err == nil {
 		// Try to prune.
 		bc.tryPrune(ctx, blk.NumberU64())
@@ -570,33 +530,27 @@ func (bc *blockchainImpl) SetHead(ctx context.Context, hash common.Hash) error {
 }
 
 // SetFinalized sets the finalized block of this chain.
-func (bc *blockchainImpl) SetFinalized(ctx context.Context, hash common.Hash) error {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.WriteTimeout)
-	defer cancel()
-
+func (bc *blockchainImpl) SetFinalized(_ context.Context, hash common.Hash) error {
 	size := itypes.SizeHash(hash)
 	bs := make([]byte, size)
 	itypes.MarshalHash(hash, bs)
 
-	return bc.ds.Put(subCtx, getFinalizedKey(), bs)
+	return bc.ds.Put(getFinalizedKey(), bs, nil)
 }
 
 // SetSafe sets the safe block of this chain.
-func (bc *blockchainImpl) SetSafe(ctx context.Context, hash common.Hash) error {
-	subCtx, cancel := context.WithTimeout(ctx, bc.opts.WriteTimeout)
-	defer cancel()
-
+func (bc *blockchainImpl) SetSafe(_ context.Context, hash common.Hash) error {
 	size := itypes.SizeHash(hash)
 	bs := make([]byte, size)
 	itypes.MarshalHash(hash, bs)
 
-	return bc.ds.Put(subCtx, getSafeKey(), bs)
+	return bc.ds.Put(getSafeKey(), bs, nil)
 }
 
 // getForks gets the forks for given height.
-func (bc *blockchainImpl) getForks(ctx context.Context, height uint64) ([]common.Hash, error) {
+func (bc *blockchainImpl) getForks(_ context.Context, height uint64) ([]common.Hash, error) {
 	// Get forks
-	forkVal, err := bc.ds.Get(ctx, getForkKey(height))
+	forkVal, err := bc.ds.Get(getForkKey(height), nil)
 	if err != nil {
 		return nil, err
 	}

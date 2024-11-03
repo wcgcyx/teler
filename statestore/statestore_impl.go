@@ -19,9 +19,10 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/holiman/uint256"
-	"github.com/ipfs/go-datastore"
-	badgerds "github.com/ipfs/go-ds-badger2"
 	logging "github.com/ipfs/go-log"
+	"github.com/syndtr/goleveldb/leveldb"
+	lerrors "github.com/syndtr/goleveldb/leveldb/errors"
+	"github.com/syndtr/goleveldb/leveldb/opt"
 	itypes "github.com/wcgcyx/teler/types"
 )
 
@@ -32,7 +33,7 @@ var log = logging.Logger("statestore")
 type stateStoreImpl struct {
 	ctx  context.Context
 	opts Opts
-	ds   *badgerds.Datastore
+	ds   *leveldb.DB
 	// Process related
 	routineCtx context.Context
 	cancel     context.CancelFunc
@@ -41,19 +42,10 @@ type stateStoreImpl struct {
 
 // NewStateStoreImpl creates a new StateStore
 func NewStateStoreImpl(ctx context.Context, opts Opts, genesis *core.Genesis, genesisRoot common.Hash) (StateStore, error) {
-	dsopts := badgerds.DefaultOptions
-	dsopts.SyncWrites = false
-	dsopts.Truncate = true
-	// Use max table size of 64MiB
-	dsopts.Options.MaxTableSize = 64 << 20
-	// Use block cache size of 512MiB
-	dsopts.Options.BlockCacheSize = 512 << 20
-	// Use value threshold of 1MiB
-	dsopts.Options.ValueThreshold = 1 << 20
 	if opts.Path == "" {
 		return nil, fmt.Errorf("empty path provided")
 	}
-	ds, err := badgerds.NewDatastore(opts.Path, &dsopts)
+	ds, err := leveldb.OpenFile(opts.Path, &opt.Options{})
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +58,7 @@ func NewStateStoreImpl(ctx context.Context, opts Opts, genesis *core.Genesis, ge
 		cancel:     cancel,
 		exitLoop:   make(chan bool),
 	}
-	ok, err := res.ds.Has(ctx, persistedHeightKey())
+	ok, err := res.ds.Has(persistedHeightKey(), nil)
 	if err != nil {
 		ds.Close()
 		return nil, err
@@ -110,10 +102,7 @@ func NewStateStoreImpl(ctx context.Context, opts Opts, genesis *core.Genesis, ge
 
 // GetPersistedHeight gets the persisted state height and root.
 func (s *stateStoreImpl) GetPersistedHeight() (uint64, common.Hash, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := s.ds.Get(ctx, persistedHeightKey())
+	val, err := s.ds.Get(persistedHeightKey(), nil)
 	if err != nil {
 		return 0, common.Hash{}, err
 	}
@@ -123,10 +112,7 @@ func (s *stateStoreImpl) GetPersistedHeight() (uint64, common.Hash, error) {
 
 // GetChildren gets the child states for a state with the given root hash.
 func (s *stateStoreImpl) GetChildren(height uint64, rootHash common.Hash) ([]common.Hash, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := s.ds.Get(ctx, getChildrenKey(height, rootHash))
+	val, err := s.ds.Get(getChildrenKey(height, rootHash), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -136,10 +122,7 @@ func (s *stateStoreImpl) GetChildren(height uint64, rootHash common.Hash) ([]com
 
 // GetLayerLog gets the layer log for a state with the given root hash.
 func (s *stateStoreImpl) GetLayerLog(height uint64, rootHash common.Hash) (itypes.LayerLog, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := s.ds.Get(ctx, getLayerLogKey(height, rootHash))
+	val, err := s.ds.Get(getLayerLogKey(height, rootHash), nil)
 	if err != nil {
 		return itypes.LayerLog{}, err
 	}
@@ -149,13 +132,10 @@ func (s *stateStoreImpl) GetLayerLog(height uint64, rootHash common.Hash) (itype
 
 // GetAccountValue gets the persisted account value for given address.
 func (s *stateStoreImpl) GetAccountValue(addr common.Address) (itypes.AccountValue, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.opts.ReadTimeout)
-	defer cancel()
-
 	res := itypes.AccountValue{}
-	val, err := s.ds.Get(ctx, getAccountValueKey(addr))
+	val, err := s.ds.Get(getAccountValueKey(addr), nil)
 	if err != nil {
-		if !errors.Is(err, datastore.ErrNotFound) {
+		if !errors.Is(err, lerrors.ErrNotFound) {
 			return itypes.AccountValue{}, err
 		}
 		log.Debugf("Get account value empty for %v", addr)
@@ -165,10 +145,10 @@ func (s *stateStoreImpl) GetAccountValue(addr common.Address) (itypes.AccountVal
 		res.DirtyStorage = false
 		// Get account version
 		version := uint64(0)
-		versionBytes, err := s.ds.Get(ctx, getAccountVersionKey(addr))
+		versionBytes, err := s.ds.Get(getAccountVersionKey(addr), nil)
 		if err == nil {
 			version = decodeAccountVersion(versionBytes)
-		} else if !errors.Is(err, datastore.ErrNotFound) {
+		} else if !errors.Is(err, lerrors.ErrNotFound) {
 			return itypes.AccountValue{}, err
 		}
 		res.Version = version
@@ -189,12 +169,9 @@ func (s *stateStoreImpl) GetAccountValue(addr common.Address) (itypes.AccountVal
 
 // GetStorageByVersion gets the persisted storage value for given key.
 func (s *stateStoreImpl) GetStorageByVersion(addr common.Address, version uint64, key common.Hash) (common.Hash, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.opts.ReadTimeout)
-	defer cancel()
-
-	val, err := s.ds.Get(ctx, getStorageKey(addr, version, key))
+	val, err := s.ds.Get(getStorageKey(addr, version, key), nil)
 	if err != nil {
-		if errors.Is(err, datastore.ErrNotFound) {
+		if errors.Is(err, lerrors.ErrNotFound) {
 			log.Debugf("Get storage empty for %v-%v-%v", addr, version, key)
 			return common.Hash{}, nil
 		}
@@ -207,10 +184,7 @@ func (s *stateStoreImpl) GetStorageByVersion(addr common.Address, version uint64
 
 // GetCodeByHash gets the persisted code for given hash.
 func (s *stateStoreImpl) GetCodeByHash(codeHash common.Hash) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(s.ctx, s.opts.ReadTimeout)
-	defer cancel()
-
-	codeBytes, err := s.ds.Get(ctx, getCodeKey(codeHash))
+	codeBytes, err := s.ds.Get(getCodeKey(codeHash), nil)
 	if err != nil {
 		return nil, err
 	}

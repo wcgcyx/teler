@@ -11,13 +11,9 @@ package statestore
  */
 
 import (
-	"encoding/base64"
 	"encoding/binary"
-	"strconv"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ipfs/go-datastore"
 	"github.com/mus-format/mus-go"
 	"github.com/mus-format/mus-go/ord"
 	itypes "github.com/wcgcyx/teler/types"
@@ -36,73 +32,82 @@ const (
 )
 
 // persistedHeightKey gets the datastore key for persisted height.
-func persistedHeightKey() datastore.Key {
-	return datastore.NewKey(persistedKey)
+func persistedHeightKey() []byte {
+	return []byte(persistedKey)
 }
 
 // getChildrenKey gets the datastore key for children with given root.
-func getChildrenKey(height uint64, root common.Hash) datastore.Key {
-	rootStr := base64.URLEncoding.EncodeToString(root.Bytes())
-	return datastore.NewKey(childrenKey + separator + strconv.FormatUint(height, 10) + separator + rootStr)
+func getChildrenKey(height uint64, root common.Hash) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, height)
+	res := append([]byte(childrenKey+separator), b...)
+	res = append(res, []byte(separator)...)
+	res = append(res, root.Bytes()...)
+	return res
 }
 
 // getLayerLogKey gets the datastore key for layer log with given root.
-func getLayerLogKey(height uint64, root common.Hash) datastore.Key {
-	rootStr := base64.URLEncoding.EncodeToString(root.Bytes())
-	return datastore.NewKey(layerLogKey + separator + strconv.FormatUint(height, 10) + separator + rootStr)
+func getLayerLogKey(height uint64, root common.Hash) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, height)
+	res := append([]byte(layerLogKey+separator), b...)
+	res = append(res, []byte(separator)...)
+	res = append(res, root.Bytes()...)
+	return res
 }
 
 // getAccountValueKey gets the datastore key for account value with given address.
-func getAccountValueKey(addr common.Address) datastore.Key {
-	addrStr := base64.URLEncoding.EncodeToString(addr.Bytes())
-	return datastore.NewKey(accountValueKey + separator + addrStr)
+func getAccountValueKey(addr common.Address) []byte {
+	return append([]byte(accountValueKey+separator), addr.Bytes()...)
 }
 
 // getAccountVersionKey gets the datastore key for given storage version.
-func getAccountVersionKey(addr common.Address) datastore.Key {
-	addrStr := base64.URLEncoding.EncodeToString(addr.Bytes())
-	return datastore.NewKey(accountVersionKey + separator + addrStr)
+func getAccountVersionKey(addr common.Address) []byte {
+	return append([]byte(accountVersionKey+separator), addr.Bytes()...)
 }
 
 // getStorageKey gets the datastore key for given storage location.
-func getStorageKey(addr common.Address, version uint64, key common.Hash) datastore.Key {
-	addrStr := base64.URLEncoding.EncodeToString(addr.Bytes())
-	keyStr := base64.URLEncoding.EncodeToString(key.Bytes())
-	return datastore.NewKey(storageKey + separator + addrStr + separator + strconv.FormatUint(version, 10) + separator + keyStr)
+func getStorageKey(addr common.Address, version uint64, key common.Hash) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, version)
+	res := append([]byte(storageKey+separator), addr.Bytes()...)
+	res = append(res, []byte(separator)...)
+	res = append(res, b...)
+	res = append(res, []byte(separator)...)
+	res = append(res, key.Bytes()...)
+	return res
 }
 
 // splitStorageKey splits the storage key to get location.
 // This is unsafe, must be called on valid key string.
-func splitStorageKey(key string) (common.Address, uint64, common.Hash) {
-	temp := strings.Split(key, separator)
-	data, _ := base64.URLEncoding.DecodeString(temp[1])
-	addr := common.BytesToAddress(data)
-	version, _ := strconv.ParseUint(temp[2], 10, 64)
-	data, _ = base64.URLEncoding.DecodeString(temp[3])
-	k := common.BytesToHash(data)
-	return addr, version, k
+func splitStorageKey(key []byte) (common.Address, uint64, common.Hash) {
+	addrBytes := key[2:22]
+	versionBytes := key[23:31]
+	hashBytes := key[32:64]
+	return common.BytesToAddress(addrBytes), binary.LittleEndian.Uint64(versionBytes), common.BytesToHash(hashBytes)
 }
 
 // getCodeKey gets the datastore key for given address.
-func getCodeKey(codeHash common.Hash) datastore.Key {
-	codeStr := base64.URLEncoding.EncodeToString(codeHash.Bytes())
-	return datastore.NewKey(codeKey + separator + codeStr)
+func getCodeKey(codeHash common.Hash) []byte {
+	return append([]byte(codeKey+separator), codeHash.Bytes()...)
 }
 
 // getGCKey gets the gc key for given address-version pair.
-func getGCKey(addr common.Address, version uint64) datastore.Key {
-	addrStr := base64.URLEncoding.EncodeToString(addr.Bytes())
-	return datastore.NewKey(gcKey + separator + addrStr + separator + strconv.FormatUint(version, 10))
+func getGCKey(addr common.Address, version uint64) []byte {
+	b := make([]byte, 8)
+	binary.LittleEndian.PutUint64(b, version)
+	res := append([]byte(gcKey+separator), addr.Bytes()...)
+	res = append(res, []byte(separator)...)
+	res = append(res, b...)
+	return res
 }
 
 // splitGCKey splits the gc key to get address-version pair.
 // This is unsafe, must be called on valid key string.
-func splitGCKey(key string) (common.Address, uint64) {
-	temp := strings.Split(key, separator)
-	data, _ := base64.URLEncoding.DecodeString(temp[1])
-	addr := common.BytesToAddress(data)
-	version, _ := strconv.ParseUint(temp[2], 10, 64)
-	return addr, version
+func splitGCKey(key []byte) (common.Address, uint64) {
+	addrBytes := key[2:22]
+	versionBytes := key[23:31]
+	return common.BytesToAddress(addrBytes), binary.LittleEndian.Uint64(versionBytes)
 }
 
 // encodePersistedHeight encodes the persisted height and root.
