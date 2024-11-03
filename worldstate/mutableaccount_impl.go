@@ -194,11 +194,9 @@ func (acct *mutableAccountImpl) SetNonce(nonce uint64) (revert func()) {
 	if acct.interpretVersion() == notExisted {
 		acct.version++
 		optionalRevert = func() { acct.version-- }
-	} else if acct.interpretVersion() == beingDeleted {
-		if nonce != 0 {
-			log.Panicf("Cannot modify account being deleted to have nonce %v", nonce)
-		}
 	}
+	// Note: Set nonce to a destructed account is allowed.
+
 	originalNonce := acct.nonce
 	acct.nonce = nonce
 	if originalNonce == acct.nonce {
