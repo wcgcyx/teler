@@ -13,7 +13,7 @@ This setup enables Teler to serve RPC calls that target chain state within the p
 
 Additionally, Teler can serve as a scalable solution for Web3 providers. Instead of deploying additional full Ethereum Nodes, cost-efficient Teler Nodes can be spun up and connected to an existing Ethereum Node to maintain sync, reducing both cost and complexity.
 
-_Note: This documentation and teler is still WIP, feel free to reach out for any question._
+_Note: This documentation and teler is still WIP, please do NOT use teler for any production purpose before the first release is out. Feel free to reach out for any question._
 
 # Datadir size
 The following table summarises the disk usage of a synced Teler compared with Erigon (with `--prune=hrtc`).
