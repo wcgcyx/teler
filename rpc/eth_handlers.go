@@ -34,23 +34,23 @@ type ethAPIHandler struct {
 	be backend.Backend
 }
 
-func (h *ethAPIHandler) BlobBaseFee(ctx context.Context) (*big.Int, error) {
+func (h *ethAPIHandler) BlobBaseFee(ctx context.Context) (*hexutil.Big, error) {
 	blk, err := h.be.Blockchain().GetHead(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if excess := blk.ExcessBlobGas(); excess != nil {
-		return eip4844.CalcBlobFee(*excess), nil
+		return (*hexutil.Big)(eip4844.CalcBlobFee(*excess)), nil
 	}
 	return nil, nil
 }
 
-func (h *ethAPIHandler) BlockNumber(ctx context.Context) (*big.Int, error) {
+func (h *ethAPIHandler) BlockNumber(ctx context.Context) (hexutil.Uint64, error) {
 	blk, err := h.be.Blockchain().GetHead(ctx)
 	if err != nil {
-		return nil, err
+		return hexutil.Uint64(0), err
 	}
-	return blk.Number(), nil
+	return hexutil.Uint64(blk.NumberU64()), nil
 }
 
 func (h *ethAPIHandler) Call(ctx context.Context, args TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash, overrides *StateOverride, blockOverrides *BlockOverrides) (hexutil.Bytes, error) {
