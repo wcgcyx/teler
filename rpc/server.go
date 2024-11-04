@@ -23,6 +23,10 @@ import (
 	"github.com/wcgcyx/teler/node"
 )
 
+var (
+	Debug string
+)
+
 // Logger
 var log = logging.Logger("rpc-server")
 
@@ -49,7 +53,10 @@ func NewServer(opts Opts, node *node.Node) (*Server, error) {
 		be:   node.Backend,
 	}
 	registerAndSetAlias(rpc, "eth", ethHandle)
-	registerAndSetAlias(rpc, "admin", adminHandle)
+	if Debug != "" {
+		log.Infof("DEBUG mode enabled, admin methods are available...")
+		registerAndSetAlias(rpc, "admin", adminHandle)
+	}
 	registerAndSetAlias(rpc, "trace", traceHandle)
 	s := &http.Server{
 		Addr:           fmt.Sprintf("%v:%v", opts.Host, opts.Port),
