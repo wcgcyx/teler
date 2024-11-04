@@ -4,7 +4,8 @@ BUILD := `git rev-parse --short HEAD`
 
 build:
 	go build -o ./build/teler \
-		-ldflags "-X github.com/wcgcyx/teler/version.Version=$(BUILD)" \
+		-ldflags "-X 'github.com/wcgcyx/teler/rpc.Debug=$(DEBUG)' \
+		-X 'github.com/wcgcyx/teler/version.Version=$(BUILD)'" \
 		cmd/teler/main.go
 
 utest:
