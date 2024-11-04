@@ -13,7 +13,6 @@ package rpc
 import (
 	"context"
 	"fmt"
-	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -69,8 +68,8 @@ func (h *ethAPIHandler) Call(ctx context.Context, args TransactionArgs, blockNrO
 	return result.Return(), result.Err
 }
 
-func (h *ethAPIHandler) ChainId() *big.Int {
-	return h.be.ChainConfig().ChainID
+func (h *ethAPIHandler) ChainId() *hexutil.Big {
+	return (*hexutil.Big)(h.be.ChainConfig().ChainID)
 }
 
 func (h *ethAPIHandler) EstimateGas(ctx context.Context, args TransactionArgs, blockNrOrHash *rpc.BlockNumberOrHash, overrides *StateOverride) (hexutil.Uint64, error) {
