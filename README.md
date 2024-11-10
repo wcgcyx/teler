@@ -20,7 +20,7 @@ The following table summarises the disk usage of a synced Teler compared with Er
 |          Network      |   Teler   |   Erigon   |
 | :-------------------: | :-------: |  :-------: |
 |         Mainnet       |   TBD     |    TBD     |
-|         Sepolia       |   TBD     |    TBD     |
+| Sepolia (10/Nov/2024) |   107G    |    621G    |
 |  Holesky (1/Nov/2024) |   31G     |    177G    |
 
 # Usage
