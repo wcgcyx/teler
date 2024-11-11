@@ -1,6 +1,6 @@
 BUILD := `git rev-parse --short HEAD`
 
-.PHONY: build itest
+.PHONY: build
 
 build:
 	go build -o ./build/teler \
