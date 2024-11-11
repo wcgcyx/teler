@@ -18,8 +18,8 @@ import (
 	"time"
 	"unicode"
 
-	"github.com/filecoin-project/go-jsonrpc"
 	logging "github.com/ipfs/go-log"
+	"github.com/wcgcyx/go-jsonrpc"
 	"github.com/wcgcyx/teler/node"
 )
 

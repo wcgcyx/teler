@@ -5,7 +5,6 @@ go 1.22.6
 require (
 	github.com/ethereum/go-ethereum v1.14.8
 	github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9
-	github.com/filecoin-project/go-jsonrpc v0.7.0
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/holiman/uint256 v1.3.1
 	github.com/ipfs/go-datastore v0.6.0
@@ -15,6 +14,7 @@ require (
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.9.0
 	github.com/urfave/cli/v2 v2.25.7
+	github.com/wcgcyx/go-jsonrpc v0.0.0-20241111120636-2de9cf271678
 	go.uber.org/mock v0.5.0
 )
 
@@ -100,9 +100,9 @@ require (
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
 	go.opencensus.io v0.22.4 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
-	go.uber.org/zap v1.19.1 // indirect
+	go.uber.org/atomic v1.9.0 // indirect
+	go.uber.org/multierr v1.7.0 // indirect
+	go.uber.org/zap v1.21.0 // indirect
 	golang.org/x/crypto v0.22.0 // indirect
 	golang.org/x/exp v0.0.0-20231110203233-9a3e6036ecaa // indirect
 	golang.org/x/net v0.24.0 // indirect
