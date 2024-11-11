@@ -60,6 +60,8 @@ func NewNode(
 		Backend:    b,
 		routineCtx: routineCtx,
 		exitLoop:   make(chan bool),
+		paused:     false,
+		pausedLock: sync.RWMutex{},
 		shutdown:   func() { cancel() },
 	}
 	return node, nil
