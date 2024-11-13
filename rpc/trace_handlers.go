@@ -35,7 +35,7 @@ type traceAPIHandler struct {
 	be backend.Backend
 }
 
-func (h *traceAPIHandler) TraceBlockByNumber(ctx context.Context, number rpc.BlockNumber, config *tracers.TraceConfig) ([]*txTraceResult, error) {
+func (h *traceAPIHandler) BlockByNumber(ctx context.Context, number rpc.BlockNumber, config *tracers.TraceConfig) ([]*txTraceResult, error) {
 	block, err := getBlockByNumber(ctx, h.be, number)
 	if err != nil {
 		return nil, err
@@ -43,7 +43,7 @@ func (h *traceAPIHandler) TraceBlockByNumber(ctx context.Context, number rpc.Blo
 	return traceBlock(ctx, h.be, block, config)
 }
 
-func (h *traceAPIHandler) TraceBlockByHash(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) ([]*txTraceResult, error) {
+func (h *traceAPIHandler) BlockByHash(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) ([]*txTraceResult, error) {
 	block, err := h.be.Blockchain().GetBlockByHash(ctx, hash)
 	if err != nil {
 		return nil, err
@@ -51,7 +51,7 @@ func (h *traceAPIHandler) TraceBlockByHash(ctx context.Context, hash common.Hash
 	return traceBlock(ctx, h.be, block, config)
 }
 
-func (h *traceAPIHandler) TraceTransaction(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) (interface{}, error) {
+func (h *traceAPIHandler) Transaction(ctx context.Context, hash common.Hash, config *tracers.TraceConfig) (interface{}, error) {
 	_, blockHash, index, found, err := h.be.Blockchain().GetTransaction(ctx, hash)
 	if err != nil {
 		return nil, NewTxIndexingError()
@@ -86,7 +86,7 @@ func (h *traceAPIHandler) TraceTransaction(ctx context.Context, hash common.Hash
 	return traceTx(ctx, h.be, tx, msg, txctx, vmctx, statedb, config)
 }
 
-func (h *traceAPIHandler) TraceCall(ctx context.Context, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, config *TraceCallConfig) (interface{}, error) {
+func (h *traceAPIHandler) Call(ctx context.Context, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, config *TraceCallConfig) (interface{}, error) {
 	// Try to retrieve the specified block
 	var (
 		err     error
