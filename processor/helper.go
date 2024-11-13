@@ -105,7 +105,15 @@ func ProcessBeaconBlockRoot(beaconRoot common.Hash, vmenv *vm.EVM, worldState wo
 }
 
 // ApplyTransaction applies a transaction to state.
-func ApplyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.GasPool, worldState worldstate.WorldState, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (*types.Receipt, error) {
+func ApplyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.GasPool, worldState worldstate.WorldState, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (receipt *types.Receipt, err error) {
+	if evm.Config.Tracer != nil && evm.Config.Tracer.OnTxStart != nil {
+		evm.Config.Tracer.OnTxStart(evm.GetVMContext(), tx, msg.From)
+		if evm.Config.Tracer.OnTxEnd != nil {
+			defer func() {
+				evm.Config.Tracer.OnTxEnd(receipt, err)
+			}()
+		}
+	}
 	// Create a new context to be used in the EVM environment.
 	txContext := core.NewEVMTxContext(msg)
 	evm.Reset(txContext, worldState)
@@ -127,7 +135,7 @@ func ApplyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.Ga
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used
 	// by the tx.
-	receipt := &types.Receipt{Type: tx.Type(), PostState: root, CumulativeGasUsed: *usedGas}
+	receipt = &types.Receipt{Type: tx.Type(), PostState: root, CumulativeGasUsed: *usedGas}
 	if result.Failed() {
 		receipt.Status = types.ReceiptStatusFailed
 	} else {
@@ -152,7 +160,7 @@ func ApplyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.Ga
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(worldState.TxIndex())
-	return receipt, err
+	return
 }
 
 func consensusEngineFinalize(config *params.ChainConfig, header *types.Header, worldState worldstate.WorldState, uncles []*types.Header, withdrawals []*types.Withdrawal) {
