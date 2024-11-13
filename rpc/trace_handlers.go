@@ -63,7 +63,7 @@ func (h *traceAPIHandler) Transaction(ctx context.Context, hash common.Hash, con
 	if config != nil && config.Reexec != nil {
 		reexec = *config.Reexec
 	}
-	block, err := h.be.Blockchain().GetBlockByHash(ctx, hash)
+	block, err := h.be.Blockchain().GetBlockByHash(ctx, blockHash)
 	if err != nil {
 		return nil, err
 	}
