@@ -69,6 +69,8 @@ eth_blockNumber
 eth_call
 eth_chainId
 eth_estimateGas
+eth_feeHistory
+eth_gasPrice
 eth_getBalance
 eth_getBlockByHash
 eth_getBlockByNumber
@@ -84,6 +86,9 @@ eth_getTransactionCount
 eth_getTransactionReceipt
 eth_getUncleByBlockHashAndIndex
 eth_getUncleByBlockNumberAndIndex
+eth_getUncleCountByBlockHash
+eth_getUncleCountByBlockNumber
+eth_maxPriorityFeePerGas
 
 # Trace methods
 trace_blockByNumber
