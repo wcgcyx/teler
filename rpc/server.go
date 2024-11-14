@@ -18,6 +18,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/ethereum/go-ethereum/eth/gasprice"
 	logging "github.com/ipfs/go-log"
 	"github.com/wcgcyx/go-jsonrpc"
 	"github.com/wcgcyx/teler/node"
@@ -47,6 +48,19 @@ func NewServer(opts Opts, node *node.Node) (*Server, error) {
 	ethHandle := &ethAPIHandler{
 		opts: opts,
 		be:   node.Backend,
+		oracle: gasprice.NewOracle(
+			&compatibleOracleBackend{be: node.Backend},
+			gasprice.Config{
+				// TODO: Make this configurable
+				Blocks:           20,
+				Percentile:       60,
+				MaxHeaderHistory: 256,
+				MaxBlockHistory:  256,
+				MaxPrice:         gasprice.DefaultMaxPrice,
+				IgnorePrice:      gasprice.DefaultIgnorePrice,
+			},
+			nil,
+		),
 	}
 	traceHandle := &traceAPIHandler{
 		opts: opts,

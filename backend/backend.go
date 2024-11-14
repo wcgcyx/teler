@@ -14,7 +14,9 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/wcgcyx/teler/blockchain"
 	"github.com/wcgcyx/teler/processor"
@@ -53,4 +55,10 @@ type Backend interface {
 	// DebugForceProcessBlock is used to force process a block.
 	// Note: This should ONLY be called for debug purpose.
 	DebugForceProcessBlock(ctx context.Context, blk *types.Block) error
+
+	// SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
+	SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription
+
+	// Shutdown safely shuts the backend down.
+	Shutdown()
 }

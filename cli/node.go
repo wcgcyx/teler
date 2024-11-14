@@ -144,6 +144,7 @@ func runNode(c *cli.Context) error {
 
 	// Create backend
 	be := backend.NewBackendImpl(pr, genesis.Config, bc, archive)
+	defer be.Shutdown()
 
 	// Create node
 	node, err := node.NewNode(node.Opts{

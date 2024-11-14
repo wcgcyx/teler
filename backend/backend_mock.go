@@ -14,7 +14,9 @@ import (
 	reflect "reflect"
 
 	common "github.com/ethereum/go-ethereum/common"
+	core "github.com/ethereum/go-ethereum/core"
 	types "github.com/ethereum/go-ethereum/core/types"
+	event "github.com/ethereum/go-ethereum/event"
 	params "github.com/ethereum/go-ethereum/params"
 	blockchain "github.com/wcgcyx/teler/blockchain"
 	processor "github.com/wcgcyx/teler/processor"
@@ -168,6 +170,18 @@ func (mr *MockBackendMockRecorder) SetSafeTag(ctx, safe any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetSafeTag", reflect.TypeOf((*MockBackend)(nil).SetSafeTag), ctx, safe)
 }
 
+// Shutdown mocks base method.
+func (m *MockBackend) Shutdown() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Shutdown")
+}
+
+// Shutdown indicates an expected call of Shutdown.
+func (mr *MockBackendMockRecorder) Shutdown() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockBackend)(nil).Shutdown))
+}
+
 // StateArchive mocks base method.
 func (m *MockBackend) StateArchive() worldstate.LayeredWorldStateArchive {
 	m.ctrl.T.Helper()
@@ -180,4 +194,18 @@ func (m *MockBackend) StateArchive() worldstate.LayeredWorldStateArchive {
 func (mr *MockBackendMockRecorder) StateArchive() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StateArchive", reflect.TypeOf((*MockBackend)(nil).StateArchive))
+}
+
+// SubscribeChainHeadEvent mocks base method.
+func (m *MockBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SubscribeChainHeadEvent", ch)
+	ret0, _ := ret[0].(event.Subscription)
+	return ret0
+}
+
+// SubscribeChainHeadEvent indicates an expected call of SubscribeChainHeadEvent.
+func (mr *MockBackendMockRecorder) SubscribeChainHeadEvent(ch any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SubscribeChainHeadEvent", reflect.TypeOf((*MockBackend)(nil).SubscribeChainHeadEvent), ch)
 }
