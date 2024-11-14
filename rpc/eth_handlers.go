@@ -281,3 +281,21 @@ func (h *ethAPIHandler) GetUncleByBlockHashAndIndex(ctx context.Context, blockHa
 	block = types.NewBlockWithHeader(uncles[index])
 	return rpcMarshalBlock(h.be, block, false, false)
 }
+
+func (h *ethAPIHandler) GetUncleCountByBlockNumber(ctx context.Context, blockNr rpc.BlockNumber) (*hexutil.Uint, error) {
+	block, err := getBlockByNumber(ctx, h.be, blockNr)
+	if err != nil {
+		return nil, err
+	}
+	n := hexutil.Uint(len(block.Uncles()))
+	return &n, nil
+}
+
+func (h *ethAPIHandler) GetUncleCountByBlockHash(ctx context.Context, blockHash common.Hash) (*hexutil.Uint, error) {
+	block, err := h.be.Blockchain().GetBlockByHash(ctx, blockHash)
+	if err != nil {
+		return nil, err
+	}
+	n := hexutil.Uint(len(block.Uncles()))
+	return &n, nil
+}
