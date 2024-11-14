@@ -83,6 +83,5 @@ func (ob *compatibleOracleBackend) ChainConfig() *params.ChainConfig {
 }
 
 func (ob *compatibleOracleBackend) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
-	// TODO...
-	return nil
+	return ob.be.SubscribeChainHeadEvent(ch)
 }

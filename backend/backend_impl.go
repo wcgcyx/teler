@@ -14,8 +14,10 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
+	"github.com/ethereum/go-ethereum/event"
 	"github.com/ethereum/go-ethereum/params"
 	logging "github.com/ipfs/go-log"
 	"github.com/wcgcyx/teler/blockchain"
@@ -36,6 +38,9 @@ type BackendImpl struct {
 	// Chain and states
 	bc blockchain.Blockchain
 	sa worldstate.LayeredWorldStateArchive
+
+	chainHeadFeed event.Feed
+	scope         event.SubscriptionScope
 }
 
 // NewBackendImpl creates a new backend.
@@ -119,6 +124,8 @@ func (b *BackendImpl) ImportBlock(ctx context.Context, blk *types.Block, prvBlk 
 		log.Warnf("Fail to set head to %v: %v", blk.Hash(), err.Error())
 	}
 	log.Infof("Successfully processed block %v (%v): txn %v gas used %v", blk.NumberU64(), blk.Hash(), len(receipts), gasUsed)
+	// Send event
+	b.chainHeadFeed.Send(core.ChainHeadEvent{Block: blk})
 	return nil
 }
 
@@ -193,4 +200,16 @@ func (b *BackendImpl) DebugForceProcessBlock(ctx context.Context, blk *types.Blo
 	}
 	log.Infof("Force processed block %v (%v): txn %v gas used %v", blk.NumberU64(), blk.Hash(), len(receipts), gasUsed)
 	return nil
+}
+
+// SubscribeChainHeadEvent registers a subscription of ChainHeadEvent.
+func (b *BackendImpl) SubscribeChainHeadEvent(ch chan<- core.ChainHeadEvent) event.Subscription {
+	return b.scope.Track(b.chainHeadFeed.Subscribe(ch))
+}
+
+// Shutdown safely shuts the backend down.
+func (b *BackendImpl) Shutdown() {
+	log.Infof("Close backend...")
+	b.scope.Close()
+	log.Infof("Backend closed successfully.")
 }
