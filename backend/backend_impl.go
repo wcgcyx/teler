@@ -12,6 +12,7 @@ package backend
 
 import (
 	"context"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -79,6 +80,7 @@ func (b *BackendImpl) StateArchive() worldstate.LayeredWorldStateArchive {
 
 // ImportBlock process and import a block.
 func (b *BackendImpl) ImportBlock(ctx context.Context, blk *types.Block, prvBlk *types.Block) error {
+	start := time.Now()
 	// Check if this block has already been imported
 	exists, err := b.bc.HasBlock(ctx, blk.Hash())
 	if err != nil {
@@ -123,7 +125,9 @@ func (b *BackendImpl) ImportBlock(ctx context.Context, blk *types.Block, prvBlk 
 	if err != nil {
 		log.Warnf("Fail to set head to %v: %v", blk.Hash(), err.Error())
 	}
-	log.Infof("Successfully processed block %v (%v): txn %v gas used %v", blk.NumberU64(), blk.Hash(), len(receipts), gasUsed)
+	timeTaken := time.Since(start)
+	gasRate := float64(gasUsed) / 1e6 / timeTaken.Seconds()
+	log.Infof("Successfully processed block %v (%v): txn %v gas used %v, time taken %v, gas rate %.2f M/s", blk.NumberU64(), blk.Hash(), len(receipts), gasUsed, timeTaken, gasRate)
 	// Send event
 	b.chainHeadFeed.Send(core.ChainHeadEvent{Block: blk})
 	return nil
