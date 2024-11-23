@@ -341,6 +341,12 @@ func TestGetBlockData(t *testing.T) {
 			bg.AddTx(tx)
 		}
 	})
+	// Fix, receipts have empty logs from chain generation, overwrite to empty list
+	for _, rs := range receipts {
+		for _, r := range rs {
+			r.Logs = make([]*types.Log, 0)
+		}
+	}
 
 	for i, blk := range blocks {
 		err := blockchain.AddBlock(ctx, blk, receipts[i])

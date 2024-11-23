@@ -12,6 +12,7 @@ package blockchain
 
 import (
 	"bytes"
+	"encoding/json"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -153,10 +154,7 @@ func decodeTransaction(val []byte) (*types.Transaction, common.Hash, uint64, err
 
 // encodeReceipt encodes receipt to bytes.
 func encodeReceipt(v *types.Receipt, blkHash common.Hash, index uint64) []byte {
-	buf := new(bytes.Buffer)
-	v.EncodeRLP(buf)
-	receiptData := buf.Bytes()
-
+	receiptData, _ := json.Marshal(v)
 	size := itypes.SizeBytes(receiptData)
 	size += itypes.SizeHash(blkHash)
 	size += varint.SizeUint64(index)
@@ -176,7 +174,7 @@ func decodeReceipt(val []byte) (*types.Receipt, common.Hash, uint64, error) {
 		return nil, common.Hash{}, 0, err
 	}
 	res := &types.Receipt{}
-	err = res.DecodeRLP(rlp.NewStream(bytes.NewReader(receiptData), 0))
+	err = json.Unmarshal(receiptData, res)
 	if err != nil {
 		return nil, common.Hash{}, 0, err
 	}
