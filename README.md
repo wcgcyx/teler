@@ -78,6 +78,7 @@ eth_getBlockReceipts
 eth_getBlockTransactionCountByHash
 eth_getBlockTransactionCountByNumber
 eth_getCode
+eth_getLogs
 eth_getStorageAt
 eth_getTransactionByBlockHashAndIndex
 eth_getTransactionByBlockNumberAndIndex

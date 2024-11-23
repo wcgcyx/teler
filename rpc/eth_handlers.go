@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/ethereum/go-ethereum/eth/gasprice"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/wcgcyx/teler/backend"
@@ -360,4 +361,124 @@ func (h *ethAPIHandler) MaxPriorityFeePerGas(ctx context.Context) (*hexutil.Big,
 		return nil, err
 	}
 	return (*hexutil.Big)(tipcap), err
+}
+
+func (h *ethAPIHandler) GetLogs(ctx context.Context, crit filters.FilterCriteria) ([]*types.Log, error) {
+	// This is adapted from:
+	// 		erigon@v2.60.6/turbo/jsonrpc/eth_receipts.go
+	// TODO: Make this more efficient by maintaining a filter instance
+	var begin, end uint64
+	logs := make([]*types.Log, 0)
+
+	if crit.BlockHash != nil {
+		block, err := h.be.Blockchain().GetBlockByHash(ctx, *crit.BlockHash)
+		if err != nil {
+			return nil, err
+		}
+		num := block.NumberU64()
+		begin = num
+		end = num
+	} else {
+		// Get head
+		head, err := h.be.Blockchain().GetHead(ctx)
+		if err != nil {
+			return nil, err
+		}
+		latest := head.NumberU64()
+		begin = latest
+		if crit.FromBlock != nil {
+			fromBlk, err := getBlockByNumber(ctx, h.be, rpc.BlockNumber(crit.FromBlock.Int64()))
+			if err != nil {
+				return nil, err
+			}
+			begin = fromBlk.NumberU64()
+		}
+		end = latest
+		if crit.ToBlock != nil {
+			toBlk, err := getBlockByNumber(ctx, h.be, rpc.BlockNumber(crit.ToBlock.Int64()))
+			if err != nil {
+				return nil, err
+			}
+			end = toBlk.NumberU64()
+		}
+	}
+
+	if end < begin {
+		return nil, fmt.Errorf("end (%d) < begin (%d)", end, begin)
+	}
+
+	if end > math.MaxUint32 {
+		// Get head
+		head, err := h.be.Blockchain().GetHead(ctx)
+		if err != nil {
+			return nil, err
+		}
+		latest := head.NumberU64()
+		if begin > latest {
+			return nil, fmt.Errorf("begin (%d) > latest (%d)", begin, latest)
+		}
+		end = latest
+	}
+
+	// Filter logs
+	addrMap := make(map[common.Address]bool)
+	for _, addr := range crit.Addresses {
+		addrMap[addr] = true
+	}
+	topicMap := make(map[int]map[common.Hash]struct{}, 7)
+	for idx, v := range crit.Topics {
+		for _, vv := range v {
+			if _, ok := topicMap[idx]; !ok {
+				topicMap[idx] = map[common.Hash]struct{}{}
+			}
+			topicMap[idx][vv] = struct{}{}
+		}
+	}
+	for i := begin; i <= end; i++ {
+		blk, err := h.be.Blockchain().GetBlockByNumber(ctx, i)
+		if err != nil {
+			return nil, err
+		}
+		for _, txn := range blk.Transactions() {
+			receipt, _, _, exists, err := h.be.Blockchain().GetReceipt(ctx, txn.Hash())
+			if err != nil {
+				return nil, err
+			}
+			if !exists {
+				return nil, fmt.Errorf("fail to find receipt for txn %v", txn.Hash())
+			}
+			for _, l := range receipt.Logs {
+				// check address if addrMap is not empty
+				if len(addrMap) != 0 {
+					if _, ok := addrMap[l.Address]; !ok {
+						// not there? skip this log
+						continue
+					}
+				}
+				// If the to filtered topics is greater than the amount of topics in logs, skip.
+				if len(crit.Topics) > len(l.Topics) {
+					continue
+				}
+				// the default state is to include the log
+				found := true
+				// if there are no topics provided, then match all
+				for idx, topicSet := range topicMap {
+					if len(topicSet) == 0 {
+						continue
+					}
+					// the topicSet isnt empty, so the topic must be included.
+					if _, ok := topicSet[l.Topics[idx]]; !ok {
+						// the topic wasn't found, so we should skip this log
+						found = false
+						break
+					}
+				}
+				if found {
+					logs = append(logs, l)
+				}
+			}
+		}
+	}
+
+	return logs, nil
 }
