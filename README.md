@@ -19,7 +19,7 @@ _Note: This documentation and teler is still WIP, please do NOT use teler for an
 The following table summarises the disk usage of a synced Teler compared with Erigon (with `--prune=hrtc`).
 |          Network      |   Teler   |   Erigon   |
 | :-------------------: | :-------: |  :-------: |
-|         Mainnet       |   TBD     |    TBD     |
+|  Mainnet (1/Jun/2024) |   273G    |    1.32T   |
 | Sepolia (10/Nov/2024) |   107G    |    621G    |
 |  Holesky (1/Nov/2024) |   31G     |    177G    |
 
