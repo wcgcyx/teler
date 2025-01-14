@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dgraph-io/badger/v2/options"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -44,12 +45,10 @@ func NewStateStoreImpl(ctx context.Context, opts Opts, genesis *core.Genesis, ge
 	dsopts := badgerds.DefaultOptions
 	dsopts.SyncWrites = false
 	dsopts.Truncate = true
-	// Use max table size of 64MiB
-	dsopts.Options.MaxTableSize = 64 << 20
-	// Use block cache size of 512MiB
-	dsopts.Options.BlockCacheSize = 512 << 20
-	// Use value threshold of 1MiB
-	dsopts.Options.ValueThreshold = 1 << 20
+	// Use max table size of 256MiB
+	dsopts.Options.MaxTableSize = 256 << 20
+	// Use memory map for value log
+	dsopts.Options.ValueLogLoadingMode = options.MemoryMap
 	if opts.Path == "" {
 		return nil, fmt.Errorf("empty path provided")
 	}

@@ -44,9 +44,10 @@ type BackendImpl struct {
 	scope         event.SubscriptionScope
 
 	// Perf related stat
-	blkSinceLastReport uint64
-	gasProcessed       uint64
-	timeTaken          time.Duration
+	blkProcessed uint64
+	txnProcessed uint64
+	gasProcessed uint64
+	timeTaken    time.Duration
 }
 
 // NewBackendImpl creates a new backend.
@@ -132,16 +133,20 @@ func (b *BackendImpl) ImportBlock(ctx context.Context, blk *types.Block, prvBlk 
 	}
 	timeTaken := time.Since(start)
 	log.Infof("Successfully processed block %v (%v): txn %v gas used %v, time taken %v", blk.NumberU64(), blk.Hash(), len(receipts), gasUsed, timeTaken)
-	// Report gas rate per 10 blocks
+	// Report gas rate per 1G gas
+	b.blkProcessed++
+	b.txnProcessed += uint64(len(receipts))
 	b.gasProcessed += gasUsed
 	b.timeTaken = b.timeTaken + timeTaken
-	b.blkSinceLastReport++
-	if b.blkSinceLastReport >= 10 {
+	if b.gasProcessed >= 1e9 {
+		blkRate := float64(b.blkProcessed) / b.timeTaken.Seconds()
+		txnRate := float64(b.txnProcessed) / b.timeTaken.Seconds()
 		gasRate := float64(b.gasProcessed) / 1e6 / b.timeTaken.Seconds()
-		log.Infof("Current gas processing speed is %.2f M/s", gasRate)
+		log.Infof("Current gas processing speed is %.2f blk/s %.2f txn/s %.2f M/s", blkRate, txnRate, gasRate)
+		b.blkProcessed = 0
+		b.txnProcessed = 0
 		b.gasProcessed = 0
 		b.timeTaken = 0
-		b.blkSinceLastReport = 0
 	}
 	// Send event
 	b.chainHeadFeed.Send(core.ChainHeadEvent{Block: blk})
