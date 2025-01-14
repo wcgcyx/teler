@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/dgraph-io/badger/v2/options"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -43,8 +44,8 @@ func NewBlockchainImpl(ctx context.Context, opts Opts, genesis *core.Genesis) (B
 	dsopts.Truncate = true
 	// Use max table size of 64MiB
 	dsopts.Options.MaxTableSize = 64 << 20
-	// Use block cache size of 64MiB
-	dsopts.Options.BlockCacheSize = 64 << 20
+	// Use memory map for value log
+	dsopts.Options.ValueLogLoadingMode = options.MemoryMap
 	if opts.Path == "" {
 		return nil, fmt.Errorf("empty path provided")
 	}
