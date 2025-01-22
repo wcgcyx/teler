@@ -289,8 +289,14 @@ type LayeredWorldStateArchive interface {
 	// GetChainConfig gets the chain configuration.
 	GetChainConfig() *params.ChainConfig
 
+	// SetMaxLayerToRetain sets the configured max layer to retain in memory.
+	SetMaxLayerToRetain(maxLayerToRetain uint64)
+
 	// GetMaxLayerToRetain gets the configured max layer to retain in memory.
 	GetMaxLayerToRetain() uint64
+
+	// SetPruningFrequency sets the configured pruning frequency.
+	SetPruningFrequency(pruningFrequency uint64)
 
 	// GetPruningFrequency gets the configured pruning frequency.
 	GetPruningFrequency() uint64

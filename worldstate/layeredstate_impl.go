@@ -11,8 +11,6 @@ package worldstate
  */
 
 import (
-	"encoding/hex"
-
 	"github.com/ethereum/go-ethereum/common"
 	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/wcgcyx/teler/statestore"
@@ -93,8 +91,8 @@ func newLayeredWorldState(
 
 // GetAccountValue gets the account value of given address.
 func (s *layeredStateImpl) GetAccountValue(addr common.Address, requireCache bool) (res itypes.AccountValue) {
-	log.Debugf("Layer %v - GetAccountValue(%v)", s.layerLog.RootHash, addr)
-	defer func() { log.Debugf("Layer %v - GetAccountValue(%v) returns (%v)", s.layerLog.RootHash, addr, res) }()
+	// log.Debugf("Layer %v - GetAccountValue(%v)", s.layerLog.RootHash, addr)
+	// defer func() { log.Debugf("Layer %v - GetAccountValue(%v) returns (%v)", s.layerLog.RootHash, addr, res) }()
 
 	var ok bool
 	res, ok = s.layerLog.UpdatedAccounts[addr]
@@ -112,10 +110,10 @@ func (s *layeredStateImpl) GetAccountValue(addr common.Address, requireCache boo
 
 // GetCodeByHash gets the code by code hash.
 func (s *layeredStateImpl) GetCodeByHash(codeHash common.Hash, requireCache bool) (code []byte) {
-	log.Debugf("Layer %v - GetCodeByHash(%v)", s.layerLog.RootHash, codeHash)
-	defer func() {
-		log.Debugf("Layer %v - GetCodeByHash(%v) returns %v", s.layerLog.RootHash, codeHash, hex.EncodeToString(code))
-	}()
+	// log.Debugf("Layer %v - GetCodeByHash(%v)", s.layerLog.RootHash, codeHash)
+	// defer func() {
+	// 	log.Debugf("Layer %v - GetCodeByHash(%v) returns %v", s.layerLog.RootHash, codeHash, hex.EncodeToString(code))
+	// }()
 
 	var ok bool
 	code, ok = s.layerLog.CodePreimage[codeHash]
@@ -133,10 +131,10 @@ func (s *layeredStateImpl) GetCodeByHash(codeHash common.Hash, requireCache bool
 
 // GetStorageByVersion gets storage by addr and version.
 func (s *layeredStateImpl) GetStorageByVersion(addr common.Address, version uint64, key common.Hash, requireCache bool) (val common.Hash) {
-	log.Debugf("Layer %v - GetStorageByVersion(%v, %v, %v)", s.layerLog.RootHash, addr, version, key)
-	defer func() {
-		log.Debugf("Layer %v - GetStorageByVersion(%v, %v, %v) returns %v", s.layerLog.RootHash, addr, version, key, val)
-	}()
+	// log.Debugf("Layer %v - GetStorageByVersion(%v, %v, %v)", s.layerLog.RootHash, addr, version, key)
+	// defer func() {
+	// 	log.Debugf("Layer %v - GetStorageByVersion(%v, %v, %v) returns %v", s.layerLog.RootHash, addr, version, key, val)
+	// }()
 
 	accountKey := itypes.GetAccountStorageKey(addr, version)
 	storage, ok := s.layerLog.UpdatedStorage[accountKey]

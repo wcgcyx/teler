@@ -135,7 +135,15 @@ func (node *Node) Mainloop() {
 			} else {
 				diff := remote - local
 				if diff > node.opts.ForwardSyncMinDistanceToStart {
+					// Only keep 1 layer during forward syncing for better performance
+					oldLayer := node.Backend.StateArchive().GetMaxLayerToRetain()
+					oldFreq := node.Backend.StateArchive().GetPruningFrequency()
+					node.Backend.StateArchive().SetMaxLayerToRetain(1)
+					node.Backend.StateArchive().SetPruningFrequency(1)
 					err = isync.ForwardSync(node.syncContext(), node.Backend, node.BlkSrc, remote-node.opts.ForwardSyncTargetGap)
+					// Revert back to the original configs
+					node.Backend.StateArchive().SetMaxLayerToRetain(oldLayer)
+					node.Backend.StateArchive().SetPruningFrequency(oldFreq)
 					if err != nil {
 						log.Errorf("Fail to forward sync from %v to %v: %v", local+1, remote-node.opts.ForwardSyncTargetGap, err.Error())
 						continue

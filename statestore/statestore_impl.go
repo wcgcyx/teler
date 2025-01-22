@@ -157,7 +157,7 @@ func (s *stateStoreImpl) GetAccountValue(addr common.Address) (itypes.AccountVal
 		if !errors.Is(err, datastore.ErrNotFound) {
 			return itypes.AccountValue{}, err
 		}
-		log.Debugf("Get account value empty for %v", addr)
+		// log.Debugf("Get account value empty for %v", addr)
 		res.Nonce = 0
 		res.Balance = uint256.NewInt(0)
 		res.CodeHash = types.EmptyCodeHash
@@ -172,7 +172,7 @@ func (s *stateStoreImpl) GetAccountValue(addr common.Address) (itypes.AccountVal
 		}
 		res.Version = version
 	} else {
-		log.Debugf("Get account value non-empty for %v", addr)
+		// log.Debugf("Get account value non-empty for %v", addr)
 		raw, err := decodeAccountValue(val)
 		if err != nil {
 			return itypes.AccountValue{}, err
@@ -194,13 +194,13 @@ func (s *stateStoreImpl) GetStorageByVersion(addr common.Address, version uint64
 	val, err := s.ds.Get(ctx, getStorageKey(addr, version, key))
 	if err != nil {
 		if errors.Is(err, datastore.ErrNotFound) {
-			log.Debugf("Get storage empty for %v-%v-%v", addr, version, key)
+			// log.Debugf("Get storage empty for %v-%v-%v", addr, version, key)
 			return common.Hash{}, nil
 		}
 		return common.Hash{}, err
 	}
 
-	log.Debugf("Get storage non-empty for %v-%v-%v", addr, version, key)
+	// log.Debugf("Get storage non-empty for %v-%v-%v", addr, version, key)
 	return decodeStorage(val)
 }
 

@@ -65,10 +65,10 @@ func newTempCommittedState(
 
 // GetMutableAccount gets the mutable account of given address.
 func (s *tempCommittedState) GetMutableAccount(addr common.Address) (res mutableAccount) {
-	log.Debugf("Committed - GetMutableAccount(%v)", addr)
-	defer func() {
-		log.Debugf("Committed - GetMutableAccount(%v) returns (%v-%v-%v-%v-%v)", addr, res.Nonce(), res.Balance(), res.CodeHash(), res.DirtyStorage(), res.Version())
-	}()
+	// log.Debugf("Committed - GetMutableAccount(%v)", addr)
+	// defer func() {
+	// 	log.Debugf("Committed - GetMutableAccount(%v) returns (%v-%v-%v-%v-%v)", addr, res.Nonce(), res.Balance(), res.CodeHash(), res.DirtyStorage(), res.Version())
+	// }()
 
 	acct, ok := s.CommittedAccounts[addr]
 	if !ok {
@@ -96,14 +96,14 @@ func (s *tempCommittedState) GetMutableAccount(addr common.Address) (res mutable
 // GetLogs returns the logs matching the specified transaction hash, and annotates
 // them with the given blockNumber and blockHash.
 func (s *tempCommittedState) GetLogs(hash common.Hash, blockNumber uint64, blockHash common.Hash) (logs []*types.Log) {
-	log.Debugf("Committed - GetLogs(%v, %v, %v)", hash, blockNumber, blockHash)
-	defer func() {
-		str := ""
-		for _, l := range logs {
-			str += fmt.Sprintf("%v;", l)
-		}
-		log.Debugf("Committed - GetLogs(%v, %v, %v) returns %v", hash, blockNumber, blockHash, str)
-	}()
+	// log.Debugf("Committed - GetLogs(%v, %v, %v)", hash, blockNumber, blockHash)
+	// defer func() {
+	// 	str := ""
+	// 	for _, l := range logs {
+	// 		str += fmt.Sprintf("%v;", l)
+	// 	}
+	// 	log.Debugf("Committed - GetLogs(%v, %v, %v) returns %v", hash, blockNumber, blockHash, str)
+	// }()
 
 	var ok bool
 	logs, ok = s.Logs[hash]
@@ -120,8 +120,8 @@ func (s *tempCommittedState) GetLogs(hash common.Hash, blockNumber uint64, block
 
 // GetLogSize returns the size of the log.
 func (s *tempCommittedState) GetLogSize() (size uint) {
-	log.Debugf("Committed - GetLogSize()")
-	defer func() { log.Debugf("Committed - GetLogSize() returns %v", size) }()
+	// log.Debugf("Committed - GetLogSize()")
+	// defer func() { log.Debugf("Committed - GetLogSize() returns %v", size) }()
 
 	size = s.LogSize
 	return
@@ -134,8 +134,8 @@ func (s *tempCommittedState) ApplyChanges(
 	logs []*types.Log,
 	dirtyAccounts map[common.Address]mutableAccount,
 ) {
-	log.Debugf("Committed - ApplyChanges(...)")
-	defer func() { log.Debugf("Committed - ApplyChanges(...) returns void") }()
+	// log.Debugf("Committed - ApplyChanges(...)")
+	// defer func() { log.Debugf("Committed - ApplyChanges(...) returns void") }()
 
 	// Apply finalized account changes one by one
 	for addr, acct := range dirtyAccounts {
@@ -162,8 +162,8 @@ func (s *tempCommittedState) ApplyChanges(
 }
 
 func (s *tempCommittedState) Commit(block uint64, rootHash common.Hash) (res common.Hash, err error) {
-	log.Debugf("Committed - Commit(%v, %v)", block, rootHash)
-	defer func() { log.Debugf("Committed - Commit(%v, %v) returns (%v, %v)", block, rootHash, res, err) }()
+	// log.Debugf("Committed - Commit(%v, %v)", block, rootHash)
+	// defer func() { log.Debugf("Committed - Commit(%v, %v) returns (%v, %v)", block, rootHash, res, err) }()
 
 	res = common.Hash{}
 	if s.committed {

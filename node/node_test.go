@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/wcgcyx/teler/backend"
 	"github.com/wcgcyx/teler/blockchain"
+	"github.com/wcgcyx/teler/worldstate"
 	"go.uber.org/mock/gomock"
 )
 
@@ -51,6 +52,7 @@ func TestNormalSync(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	m1 := backend.NewMockBackend(ctrl)
 	m2 := blockchain.NewMockBlockchain(ctrl)
+	m3 := worldstate.NewMockLayeredWorldStateArchive(ctrl)
 	m1.
 		EXPECT().
 		Blockchain().
@@ -83,6 +85,11 @@ func TestNormalSync(t *testing.T) {
 			return nil
 		}).
 		AnyTimes()
+	m1.
+		EXPECT().
+		StateArchive().
+		Return(m3).
+		AnyTimes()
 	m2.
 		EXPECT().
 		GetHead(gomock.Any()).
@@ -98,6 +105,26 @@ func TestNormalSync(t *testing.T) {
 			return res, nil
 		}).
 		AnyTimes()
+	m3.
+		EXPECT().
+		GetMaxLayerToRetain().
+		Return(uint64(256))
+	m3.
+		EXPECT().
+		GetPruningFrequency().
+		Return(uint64(127))
+	m3.
+		EXPECT().
+		SetMaxLayerToRetain(uint64(1))
+	m3.
+		EXPECT().
+		SetPruningFrequency(uint64(1))
+	m3.
+		EXPECT().
+		SetMaxLayerToRetain(uint64(256))
+	m3.
+		EXPECT().
+		SetPruningFrequency(uint64(127))
 
 	n, err := NewNode(Opts{
 		CheckFrequency:                    600 * time.Millisecond,
