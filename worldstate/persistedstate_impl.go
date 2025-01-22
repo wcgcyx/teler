@@ -14,7 +14,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-	lru "github.com/hashicorp/golang-lru/v2"
 	"github.com/wcgcyx/teler/statestore"
 	itypes "github.com/wcgcyx/teler/types"
 )
@@ -29,11 +28,6 @@ type persistedStateImpl struct {
 	rootHash common.Hash
 
 	children []LayeredWorldState
-
-	// Cache to speed up lookups
-	cachedAccts   *lru.Cache[common.Address, itypes.AccountValue]
-	cachedCode    *lru.Cache[common.Hash, []byte]
-	cachedStorage *lru.Cache[string, common.Hash]
 }
 
 // newPersistedWorldState creates a new LayeredWorldState that represents the persisted state.
@@ -43,28 +37,12 @@ func newPersistedWorldState(sstore statestore.StateStore, archive LayeredWorldSt
 	if err != nil {
 		return nil, err
 	}
-	// Create cache
-	cachedAccts, err := lru.New[common.Address, itypes.AccountValue](1024)
-	if err != nil {
-		return nil, err
-	}
-	cachedCode, err := lru.New[common.Hash, []byte](256)
-	if err != nil {
-		return nil, err
-	}
-	cachedStorage, err := lru.New[string, common.Hash](4096)
-	if err != nil {
-		return nil, err
-	}
 	res := &persistedStateImpl{
-		sstore:        sstore,
-		archive:       archive,
-		height:        height,
-		rootHash:      rootHash,
-		children:      make([]LayeredWorldState, 0),
-		cachedAccts:   cachedAccts,
-		cachedCode:    cachedCode,
-		cachedStorage: cachedStorage,
+		sstore:   sstore,
+		archive:  archive,
+		height:   height,
+		rootHash: rootHash,
+		children: make([]LayeredWorldState, 0),
 	}
 	// Register state
 	archive.Register(height, rootHash, res)
@@ -85,45 +63,30 @@ func newPersistedWorldState(sstore statestore.StateStore, archive LayeredWorldSt
 
 // GetAccountValue gets the account value of given address.
 func (s *persistedStateImpl) GetAccountValue(addr common.Address, _ bool) itypes.AccountValue {
-	acct, ok := s.cachedAccts.Get(addr)
-	if !ok {
-		var err error
-		acct, err = s.sstore.GetAccountValue(addr)
-		if err != nil {
-			log.Errorf("Fail to get account value for %v: %v", addr, err.Error())
-			return itypes.AccountValue{}
-		}
-		s.cachedAccts.Add(addr, acct)
+	acct, err := s.sstore.GetAccountValue(addr)
+	if err != nil {
+		log.Errorf("Fail to get account value for %v: %v", addr, err.Error())
+		return itypes.AccountValue{}
 	}
 	return acct
 }
 
 // GetCodeByHash gets the code by code hash.
 func (s *persistedStateImpl) GetCodeByHash(codeHash common.Hash, _ bool) []byte {
-	code, ok := s.cachedCode.Get(codeHash)
-	if !ok {
-		var err error
-		code, err = s.sstore.GetCodeByHash(codeHash)
-		if err != nil {
-			log.Errorf("Fail to get code for %v: %v", codeHash, err.Error())
-			return []byte{}
-		}
-		s.cachedCode.Add(codeHash, code)
+	code, err := s.sstore.GetCodeByHash(codeHash)
+	if err != nil {
+		log.Errorf("Fail to get code for %v: %v", codeHash, err.Error())
+		return []byte{}
 	}
 	return code
 }
 
 // GetStorageByVersion gets storage by addr and version.
 func (s *persistedStateImpl) GetStorageByVersion(addr common.Address, version uint64, key common.Hash, _ bool) common.Hash {
-	val, ok := s.cachedStorage.Get(itypes.GetAccountStorageKey(addr, version) + "-" + key.Hex())
-	if !ok {
-		var err error
-		val, err = s.sstore.GetStorageByVersion(addr, version, key)
-		if err != nil {
-			log.Errorf("Fail to get storage for %v-%v-%v: %v", addr, version, key, err.Error())
-			return common.Hash{}
-		}
-		s.cachedStorage.Add(itypes.GetAccountStorageKey(addr, version)+"-"+key.Hex(), val)
+	val, err := s.sstore.GetStorageByVersion(addr, version, key)
+	if err != nil {
+		log.Errorf("Fail to get storage for %v-%v-%v: %v", addr, version, key, err.Error())
+		return common.Hash{}
 	}
 	return val
 }
@@ -143,9 +106,6 @@ func (s *persistedStateImpl) HandlePrune(pruningRoute []common.Hash) {
 	if len(s.getToBePruned(pruningRoute)) > 0 {
 		oldHeight := s.height
 		pruned := 0
-		s.cachedAccts.Purge()
-		s.cachedCode.Purge()
-		s.cachedStorage.Purge()
 		for _, toPrune := range s.getToBePruned(pruningRoute) {
 			err := s.pruneOne(toPrune)
 			if err != nil {
@@ -154,7 +114,10 @@ func (s *persistedStateImpl) HandlePrune(pruningRoute []common.Hash) {
 			}
 			pruned++
 		}
-		log.Infof("Successfully pruned state data from height %v to %v: %v states pruned", oldHeight, s.height, pruned)
+		if pruned > 1 {
+			// Avoid too frequent logging during syncing.
+			log.Infof("Successfully pruned state data from height %v to %v: %v states pruned", oldHeight, s.height, pruned)
+		}
 	}
 }
 

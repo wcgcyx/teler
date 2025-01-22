@@ -21,8 +21,9 @@ import (
 
 // layeredWorldStateArchiveImpl implements LayeredWorldStateArchive.
 type layeredWorldStateArchiveImpl struct {
-	opts  Opts
-	chain *params.ChainConfig
+	maxLayerToRetain uint64
+	pruningFrequency uint64
+	chain            *params.ChainConfig
 
 	lock   sync.RWMutex
 	states map[uint64]map[common.Hash]LayeredWorldState
@@ -35,10 +36,11 @@ func NewLayeredWorldStateArchiveImpl(
 	sstore statestore.StateStore,
 ) (LayeredWorldStateArchive, error) {
 	res := &layeredWorldStateArchiveImpl{
-		chain:  chain,
-		opts:   opts,
-		lock:   sync.RWMutex{},
-		states: make(map[uint64]map[common.Hash]LayeredWorldState),
+		chain:            chain,
+		maxLayerToRetain: opts.MaxLayerToRetain,
+		pruningFrequency: opts.PruningFrequency,
+		lock:             sync.RWMutex{},
+		states:           make(map[uint64]map[common.Hash]LayeredWorldState),
 	}
 	_, err := newPersistedWorldState(sstore, res)
 	if err != nil {
@@ -52,14 +54,26 @@ func (a *layeredWorldStateArchiveImpl) GetChainConfig() *params.ChainConfig {
 	return a.chain
 }
 
+// SetMaxLayerToRetain sets the configured max layer to retain in memory.
+func (a *layeredWorldStateArchiveImpl) SetMaxLayerToRetain(maxLayerToRetain uint64) {
+	log.Infof("Set MaxLayerToRetain to be %v", maxLayerToRetain)
+	a.maxLayerToRetain = maxLayerToRetain
+}
+
 // GetMaxLayerToRetain gets the configured max layer to retain in memory.
 func (a *layeredWorldStateArchiveImpl) GetMaxLayerToRetain() uint64 {
-	return a.opts.MaxLayerToRetain
+	return a.maxLayerToRetain
+}
+
+// SetPruningFrequency gets the configured pruning frequency.
+func (a *layeredWorldStateArchiveImpl) SetPruningFrequency(pruningFrequency uint64) {
+	log.Infof("Set PruningFrequency to be %v", pruningFrequency)
+	a.pruningFrequency = pruningFrequency
 }
 
 // GetPruningFrequency gets the configured pruning frequency.
 func (a *layeredWorldStateArchiveImpl) GetPruningFrequency() uint64 {
-	return a.opts.PruningFrequency
+	return a.pruningFrequency
 }
 
 // Register registers a state in the archive.

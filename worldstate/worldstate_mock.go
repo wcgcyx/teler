@@ -1215,6 +1215,18 @@ func (mr *MockMutableWorldStateMockRecorder) SetCode(addr, code any) *gomock.Cal
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetCode", reflect.TypeOf((*MockMutableWorldState)(nil).SetCode), addr, code)
 }
 
+// SetLogger mocks base method.
+func (m *MockMutableWorldState) SetLogger(l *tracing.Hooks) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetLogger", l)
+}
+
+// SetLogger indicates an expected call of SetLogger.
+func (mr *MockMutableWorldStateMockRecorder) SetLogger(l any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLogger", reflect.TypeOf((*MockMutableWorldState)(nil).SetLogger), l)
+}
+
 // SetNonce mocks base method.
 func (m *MockMutableWorldState) SetNonce(addr common.Address, nonce uint64) {
 	m.ctrl.T.Helper()
@@ -1686,4 +1698,28 @@ func (m *MockLayeredWorldStateArchive) Register(height uint64, root common.Hash,
 func (mr *MockLayeredWorldStateArchiveMockRecorder) Register(height, root, worldState any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockLayeredWorldStateArchive)(nil).Register), height, root, worldState)
+}
+
+// SetMaxLayerToRetain mocks base method.
+func (m *MockLayeredWorldStateArchive) SetMaxLayerToRetain(maxLayerToRetain uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetMaxLayerToRetain", maxLayerToRetain)
+}
+
+// SetMaxLayerToRetain indicates an expected call of SetMaxLayerToRetain.
+func (mr *MockLayeredWorldStateArchiveMockRecorder) SetMaxLayerToRetain(maxLayerToRetain any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetMaxLayerToRetain", reflect.TypeOf((*MockLayeredWorldStateArchive)(nil).SetMaxLayerToRetain), maxLayerToRetain)
+}
+
+// SetPruningFrequency mocks base method.
+func (m *MockLayeredWorldStateArchive) SetPruningFrequency(pruningFrequency uint64) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetPruningFrequency", pruningFrequency)
+}
+
+// SetPruningFrequency indicates an expected call of SetPruningFrequency.
+func (mr *MockLayeredWorldStateArchiveMockRecorder) SetPruningFrequency(pruningFrequency any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetPruningFrequency", reflect.TypeOf((*MockLayeredWorldStateArchive)(nil).SetPruningFrequency), pruningFrequency)
 }

@@ -11,7 +11,6 @@ package worldstate
  */
 
 import (
-	"encoding/hex"
 	"fmt"
 	"math/big"
 
@@ -93,19 +92,19 @@ func (s *mutableStateImpl) SetLogger(l *tracing.Hooks) {
 
 // loadAccountValue for given address from dirty states or parent.
 func (s *mutableStateImpl) loadAccount(addr common.Address, write bool) (acct mutableAccount) {
-	log.Debugf("Mutable - loadAccount(%v, %v)", addr, write)
-	defer func() {
-		log.Debugf("Mutable - loadAccount(%v, %v) returns (%v-%v-%v-%v-%v)", addr, write, acct.Nonce(), acct.Balance(), acct.CodeHash(), acct.DirtyStorage(), acct.Version())
-	}()
+	// log.Debugf("Mutable - loadAccount(%v, %v)", addr, write)
+	// defer func() {
+	// 	log.Debugf("Mutable - loadAccount(%v, %v) returns (%v-%v-%v-%v-%v)", addr, write, acct.Nonce(), acct.Balance(), acct.CodeHash(), acct.DirtyStorage(), acct.Version())
+	// }()
 
 	// Check dirty first
 	var ok bool
 	acct, ok = s.DirtyAccounts[addr]
 	if !ok {
-		log.Debugf("Mutable - loadAccount(%v, %v), load from parent", addr, write)
+		// log.Debugf("Mutable - loadAccount(%v, %v), load from parent", addr, write)
 		acct = s.parent.GetMutableAccount(addr)
 		if write {
-			log.Debugf("Mutable - loadAccount(%v, %v), load to dirty accounts", addr, write)
+			// log.Debugf("Mutable - loadAccount(%v, %v), load to dirty accounts", addr, write)
 			s.DirtyAccounts[addr] = acct
 			s.recordJournal(func() { delete(s.DirtyAccounts, addr) })
 		}
@@ -125,8 +124,8 @@ func (s *mutableStateImpl) recordJournal(revert func()) {
 // Exist reports whether the given account address exists in the state.
 // Notably this also returns true for self-destructed accounts.
 func (s *mutableStateImpl) Exist(addr common.Address) (exists bool) {
-	log.Debugf("Mutable - Exist(%v)", addr)
-	defer func() { log.Debugf("Mutable - Exist(%v) returns %v", addr, exists) }()
+	// log.Debugf("Mutable - Exist(%v)", addr)
+	// defer func() { log.Debugf("Mutable - Exist(%v) returns %v", addr, exists) }()
 
 	acct := s.loadAccount(addr, false)
 	exists = acct.Exists(s.config.IsEIP158(big.NewInt(int64(s.newHeight))))
@@ -136,8 +135,8 @@ func (s *mutableStateImpl) Exist(addr common.Address) (exists bool) {
 // Empty returns whether the state object is either non-existent
 // or empty according to the EIP161 specification (balance = nonce = code = 0).
 func (s *mutableStateImpl) Empty(addr common.Address) (empty bool) {
-	log.Debugf("Mutable - Empty(%v)", addr)
-	defer func() { log.Debugf("Mutable - Empty(%v) returns %v", addr, empty) }()
+	// log.Debugf("Mutable - Empty(%v)", addr)
+	// defer func() { log.Debugf("Mutable - Empty(%v) returns %v", addr, empty) }()
 
 	acct := s.loadAccount(addr, false)
 	empty = acct.Empty()
@@ -146,8 +145,8 @@ func (s *mutableStateImpl) Empty(addr common.Address) (empty bool) {
 
 // GetBalance retrieves the balance from the given address or 0 if object not found.
 func (s *mutableStateImpl) GetBalance(addr common.Address) (balance *uint256.Int) {
-	log.Debugf("Mutable - GetBalance(%v)", addr)
-	defer func() { log.Debugf("Mutable - GetBalance(%v) returns %v", addr, balance) }()
+	// log.Debugf("Mutable - GetBalance(%v)", addr)
+	// defer func() { log.Debugf("Mutable - GetBalance(%v) returns %v", addr, balance) }()
 
 	acct := s.loadAccount(addr, false)
 	balance = uint256.NewInt(0).Set(acct.Balance())
@@ -156,8 +155,8 @@ func (s *mutableStateImpl) GetBalance(addr common.Address) (balance *uint256.Int
 
 // GetNonce retrieves the nonce from the given address or 0 if object not found.
 func (s *mutableStateImpl) GetNonce(addr common.Address) (nonce uint64) {
-	log.Debugf("Mutable - GetNonce(%v)", addr)
-	defer func() { log.Debugf("Mutable - GetNonce(%v) returns %v", addr, nonce) }()
+	// log.Debugf("Mutable - GetNonce(%v)", addr)
+	// defer func() { log.Debugf("Mutable - GetNonce(%v) returns %v", addr, nonce) }()
 
 	acct := s.loadAccount(addr, false)
 	nonce = acct.Nonce()
@@ -166,8 +165,8 @@ func (s *mutableStateImpl) GetNonce(addr common.Address) (nonce uint64) {
 
 // GetCodeHash gets the code hash of the given address.
 func (s *mutableStateImpl) GetCodeHash(addr common.Address) (codeHash common.Hash) {
-	log.Debugf("Mutable - GetCodeHash(%v)", addr)
-	defer func() { log.Debugf("Mutable - GetCodeHash(%v) returns %v", addr, codeHash) }()
+	// log.Debugf("Mutable - GetCodeHash(%v)", addr)
+	// defer func() { log.Debugf("Mutable - GetCodeHash(%v) returns %v", addr, codeHash) }()
 
 	acct := s.loadAccount(addr, false)
 	codeHash = acct.CodeHash()
@@ -176,8 +175,8 @@ func (s *mutableStateImpl) GetCodeHash(addr common.Address) (codeHash common.Has
 
 // GetCode gets the code of the given address.
 func (s *mutableStateImpl) GetCode(addr common.Address) (code []byte) {
-	log.Debugf("Mutable - GetCode(%v)", addr)
-	defer func() { log.Debugf("Mutable - GetCode(%v) returns %v", addr, hex.EncodeToString(code)) }()
+	// log.Debugf("Mutable - GetCode(%v)", addr)
+	// defer func() { log.Debugf("Mutable - GetCode(%v) returns %v", addr, hex.EncodeToString(code)) }()
 
 	acct := s.loadAccount(addr, false)
 	code = acct.Code()
@@ -186,8 +185,8 @@ func (s *mutableStateImpl) GetCode(addr common.Address) (code []byte) {
 
 // GetCodeSize gets the size of the code of the given address.
 func (s *mutableStateImpl) GetCodeSize(addr common.Address) (size int) {
-	log.Debugf("Mutable - GetCodeSize(%v)", addr)
-	defer func() { log.Debugf("Mutable - GetCodeSize(%v) returns %v", addr, size) }()
+	// log.Debugf("Mutable - GetCodeSize(%v)", addr)
+	// defer func() { log.Debugf("Mutable - GetCodeSize(%v) returns %v", addr, size) }()
 
 	size = len(s.GetCode(addr))
 	return
@@ -196,8 +195,8 @@ func (s *mutableStateImpl) GetCodeSize(addr common.Address) (size int) {
 // GetStorageRoot retrieves the storage root from the given address or empty
 // if object not found.
 func (s *mutableStateImpl) GetStorageRoot(addr common.Address) (storageRoot common.Hash) {
-	log.Debugf("Mutable - GetStorageRoot(%v)", addr)
-	defer func() { log.Debugf("Mutable - GetStorageRoot(%v) returns %v", addr, storageRoot) }()
+	// log.Debugf("Mutable - GetStorageRoot(%v)", addr)
+	// defer func() { log.Debugf("Mutable - GetStorageRoot(%v) returns %v", addr, storageRoot) }()
 
 	acct := s.loadAccount(addr, false)
 	storageRoot = types.EmptyRootHash
@@ -210,8 +209,8 @@ func (s *mutableStateImpl) GetStorageRoot(addr common.Address) (storageRoot comm
 
 // GetState retrieves the value associated with the specific key.
 func (s *mutableStateImpl) GetState(addr common.Address, key common.Hash) (val common.Hash) {
-	log.Debugf("Mutable - GetState(%v, %v)", addr, key)
-	defer func() { log.Debugf("Mutable - GetState(%v, %v) returns %v", addr, key, val) }()
+	// log.Debugf("Mutable - GetState(%v, %v)", addr, key)
+	// defer func() { log.Debugf("Mutable - GetState(%v, %v) returns %v", addr, key, val) }()
 
 	acct := s.loadAccount(addr, false)
 	val = acct.GetState(key)
@@ -222,8 +221,8 @@ func (s *mutableStateImpl) GetState(addr common.Address, key common.Hash) (val c
 // used when the EVM emits new state logs. It should be invoked before
 // transaction execution.
 func (s *mutableStateImpl) SetTxContext(thash common.Hash, ti int) {
-	log.Debugf("Mutable - SetTxContext(%v, %v)", thash, ti)
-	defer func() { log.Debugf("Mutable - SetTxContext(%v, %v) returns void", thash, ti) }()
+	// log.Debugf("Mutable - SetTxContext(%v, %v)", thash, ti)
+	// defer func() { log.Debugf("Mutable - SetTxContext(%v, %v) returns void", thash, ti) }()
 
 	// Note: This does not involve a journal revert in the original geth source code
 	s.TxHash = thash
@@ -234,8 +233,8 @@ func (s *mutableStateImpl) SetTxContext(thash common.Hash, ti int) {
 
 // TxIndex returns the current transaction index set by Prepare.
 func (s *mutableStateImpl) TxIndex() (txID int) {
-	log.Debugf("Mutable - TxIndex()")
-	defer func() { log.Debugf("Mutable - TxIndex() returns %v", txID) }()
+	// log.Debugf("Mutable - TxIndex()")
+	// defer func() { log.Debugf("Mutable - TxIndex() returns %v", txID) }()
 
 	txID = s.TxIdx
 	return
@@ -255,15 +254,15 @@ func (s *mutableStateImpl) TxIndex() (txID int) {
 // - Add coinbase to access list (EIP-3651)
 // - Reset transient storage (EIP-1153)
 func (s *mutableStateImpl) Prepare(rules params.Rules, sender, coinbase common.Address, dest *common.Address, precompiles []common.Address, txAccesses types.AccessList) {
-	log.Debugf("Mutable - Prepare(...)")
-	log.Debugf("ChainID:%v Homestead:%v EIP150:%v EIP155:%v EIP158:%v", rules.ChainID, rules.IsHomestead, rules.IsEIP150, rules.IsEIP155, rules.IsEIP158)
-	log.Debugf("EIP2929:%v EIP4762:%v", rules.IsEIP2929, rules.IsEIP4762)
-	log.Debugf("Byzantium:%v Constantinople:%v Petersburg:%v Istanbul:%v", rules.IsByzantium, rules.IsConstantinople, rules.IsPetersburg, rules.IsIstanbul)
-	log.Debugf("Berlin:%v London:%v", rules.IsBerlin, rules.IsLondon)
-	log.Debugf("Merge:%v Shanghai:%v Cancun:%v Prague:%v Verkle:%v", rules.IsMerge, rules.IsShanghai, rules.IsCancun, rules.IsPrague, rules.IsVerkle)
-	log.Debugf("sender:%v coinbase: %v dest: %v", sender, coinbase, dest)
-	log.Debugf("precompiles: %v", precompiles)
-	log.Debugf("txAccesses: %v", txAccesses)
+	// log.Debugf("Mutable - Prepare(...)")
+	// log.Debugf("ChainID:%v Homestead:%v EIP150:%v EIP155:%v EIP158:%v", rules.ChainID, rules.IsHomestead, rules.IsEIP150, rules.IsEIP155, rules.IsEIP158)
+	// log.Debugf("EIP2929:%v EIP4762:%v", rules.IsEIP2929, rules.IsEIP4762)
+	// log.Debugf("Byzantium:%v Constantinople:%v Petersburg:%v Istanbul:%v", rules.IsByzantium, rules.IsConstantinople, rules.IsPetersburg, rules.IsIstanbul)
+	// log.Debugf("Berlin:%v London:%v", rules.IsBerlin, rules.IsLondon)
+	// log.Debugf("Merge:%v Shanghai:%v Cancun:%v Prague:%v Verkle:%v", rules.IsMerge, rules.IsShanghai, rules.IsCancun, rules.IsPrague, rules.IsVerkle)
+	// log.Debugf("sender:%v coinbase: %v dest: %v", sender, coinbase, dest)
+	// log.Debugf("precompiles: %v", precompiles)
+	// log.Debugf("txAccesses: %v", txAccesses)
 
 	// Adapted from go-ethereum@v1.14.8/core/state/statedb.go
 	if rules.IsEIP2929 && rules.IsEIP4762 {
@@ -301,8 +300,8 @@ func (s *mutableStateImpl) Prepare(rules params.Rules, sender, coinbase common.A
 // exists, this function will silently overwrite it which might lead to a
 // consensus bug eventually.
 func (s *mutableStateImpl) CreateAccount(addr common.Address) {
-	log.Debugf("Mutable - CreateAccount(%v)", addr)
-	defer func() { log.Debugf("Mutable - CreateAccount(%v) returns void", addr) }()
+	// log.Debugf("Mutable - CreateAccount(%v)", addr)
+	// defer func() { log.Debugf("Mutable - CreateAccount(%v) returns void", addr) }()
 
 	acct := s.loadAccount(addr, true)
 	s.recordJournal(acct.Create())
@@ -314,8 +313,8 @@ func (s *mutableStateImpl) CreateAccount(addr common.Address) {
 // This operation sets the 'newContract'-flag, which is required in order to
 // correctly handle EIP-6780 'delete-in-same-transaction' logic.
 func (s *mutableStateImpl) CreateContract(addr common.Address) {
-	log.Debugf("Mutable - CreateContract(%v)", addr)
-	defer func() { log.Debugf("Mutable - CreateContract(%v) returns void", addr) }()
+	// log.Debugf("Mutable - CreateContract(%v)", addr)
+	// defer func() { log.Debugf("Mutable - CreateContract(%v) returns void", addr) }()
 
 	_, ok := s.NewContracts[addr]
 	if !ok {
@@ -326,8 +325,8 @@ func (s *mutableStateImpl) CreateContract(addr common.Address) {
 
 // SubBalance subtracts amount from the account associated with addr.
 func (s *mutableStateImpl) SubBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) {
-	log.Debugf("Mutable - SubBalance(%v, %v)", addr, amt)
-	defer func() { log.Debugf("Mutable - SubBalance(%v, %v) returns void", addr, amt) }()
+	// log.Debugf("Mutable - SubBalance(%v, %v)", addr, amt)
+	// defer func() { log.Debugf("Mutable - SubBalance(%v, %v) returns void", addr, amt) }()
 
 	acct := s.loadAccount(addr, true)
 	original := uint256.NewInt(0).Set(acct.Balance())
@@ -344,8 +343,8 @@ func (s *mutableStateImpl) SubBalance(addr common.Address, amt *uint256.Int, rea
 
 // AddBalance adds amount to the account associated with addr.
 func (s *mutableStateImpl) AddBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) {
-	log.Debugf("Mutable - AddBalance(%v, %v)", addr, amt)
-	defer func() { log.Debugf("Mutable - AddBalance(%v, %v) returns void", addr, amt) }()
+	// log.Debugf("Mutable - AddBalance(%v, %v)", addr, amt)
+	// defer func() { log.Debugf("Mutable - AddBalance(%v, %v) returns void", addr, amt) }()
 
 	acct := s.loadAccount(addr, true)
 	original := uint256.NewInt(0).Set(acct.Balance())
@@ -359,8 +358,8 @@ func (s *mutableStateImpl) AddBalance(addr common.Address, amt *uint256.Int, rea
 
 // SetBalance sets the balance of the account associated with addr.
 func (s *mutableStateImpl) SetBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) {
-	log.Debugf("Mutable - SetBalance(%v, %v)", addr, amt)
-	defer func() { log.Debugf("Mutable - SetBalance(%v, %v) returns void", addr, amt) }()
+	// log.Debugf("Mutable - SetBalance(%v, %v)", addr, amt)
+	// defer func() { log.Debugf("Mutable - SetBalance(%v, %v) returns void", addr, amt) }()
 
 	acct := s.loadAccount(addr, true)
 	original := uint256.NewInt(0).Set(acct.Balance())
@@ -374,8 +373,8 @@ func (s *mutableStateImpl) SetBalance(addr common.Address, amt *uint256.Int, rea
 
 // SetNonce sets the given nonce to the given address.
 func (s *mutableStateImpl) SetNonce(addr common.Address, nonce uint64) {
-	log.Debugf("Mutable - SetNonce(%v, %v)", addr, nonce)
-	defer func() { log.Debugf("Mutable - SetNonce(%v, %v) returns void", addr, nonce) }()
+	// log.Debugf("Mutable - SetNonce(%v, %v)", addr, nonce)
+	// defer func() { log.Debugf("Mutable - SetNonce(%v, %v) returns void", addr, nonce) }()
 
 	acct := s.loadAccount(addr, true)
 
@@ -388,8 +387,8 @@ func (s *mutableStateImpl) SetNonce(addr common.Address, nonce uint64) {
 
 // SetCode sets the code to the given address.
 func (s *mutableStateImpl) SetCode(addr common.Address, code []byte) {
-	log.Debugf("Mutable - SetCode(%v, %v)", addr, code)
-	defer func() { log.Debugf("Mutable - SetCode(%v, %v) returns void", addr, code) }()
+	// log.Debugf("Mutable - SetCode(%v, %v)", addr, code)
+	// defer func() { log.Debugf("Mutable - SetCode(%v, %v) returns void", addr, code) }()
 
 	acct := s.loadAccount(addr, true)
 
@@ -403,8 +402,8 @@ func (s *mutableStateImpl) SetCode(addr common.Address, code []byte) {
 
 // SetState sets the value associated with the specific key.
 func (s *mutableStateImpl) SetState(addr common.Address, key common.Hash, val common.Hash) {
-	log.Debugf("Mutable - SetState(%v, %v, %v)", addr, key, val)
-	defer func() { log.Debugf("Mutable - SetState(%v, %v, %v) returns void", addr, key, val) }()
+	// log.Debugf("Mutable - SetState(%v, %v, %v)", addr, key, val)
+	// defer func() { log.Debugf("Mutable - SetState(%v, %v, %v) returns void", addr, key, val) }()
 
 	acct := s.loadAccount(addr, true)
 
@@ -419,8 +418,8 @@ func (s *mutableStateImpl) SetState(addr common.Address, key common.Hash, val co
 // GetCommittedState retrieves the value associated with the specific key
 // without any mutations caused in the current execution.
 func (s *mutableStateImpl) GetCommittedState(addr common.Address, key common.Hash) (val common.Hash) {
-	log.Debugf("Mutable - GetCommittedState(%v, %v)", addr, key)
-	defer func() { log.Debugf("Mutable - GetCommittedState(%v, %v) returns %v", addr, key, val) }()
+	// log.Debugf("Mutable - GetCommittedState(%v, %v)", addr, key)
+	// defer func() { log.Debugf("Mutable - GetCommittedState(%v, %v) returns %v", addr, key, val) }()
 
 	val = s.parent.GetMutableAccount(addr).GetState(key)
 	return
@@ -428,8 +427,8 @@ func (s *mutableStateImpl) GetCommittedState(addr common.Address, key common.Has
 
 // GetTransientState gets transient storage for a given account.
 func (s *mutableStateImpl) GetTransientState(addr common.Address, key common.Hash) (val common.Hash) {
-	log.Debugf("Mutable - GetTransientState(%v, %v)", addr, key)
-	defer func() { log.Debugf("Mutable - GetTransientState(%v, %v) returns %v", addr, key, val) }()
+	// log.Debugf("Mutable - GetTransientState(%v, %v)", addr, key)
+	// defer func() { log.Debugf("Mutable - GetTransientState(%v, %v) returns %v", addr, key, val) }()
 
 	storageMap, ok := s.TransientState[addr]
 	if ok {
@@ -446,8 +445,8 @@ func (s *mutableStateImpl) GetTransientState(addr common.Address, key common.Has
 // adds the change to the journal so that it can be rolled back
 // to its previous value if there is a revert.
 func (s *mutableStateImpl) SetTransientState(addr common.Address, key common.Hash, val common.Hash) {
-	log.Debugf("Mutable - SetTransientState(%v, %v, %v)", addr, key, val)
-	defer func() { log.Debugf("Mutable - SetTransientState(%v, %v, %v) returns void", addr, key, val) }()
+	// log.Debugf("Mutable - SetTransientState(%v, %v, %v)", addr, key, val)
+	// defer func() { log.Debugf("Mutable - SetTransientState(%v, %v, %v) returns void", addr, key, val) }()
 
 	storageMap, ok := s.TransientState[addr]
 	if !ok {
@@ -467,8 +466,8 @@ func (s *mutableStateImpl) SetTransientState(addr common.Address, key common.Has
 
 // GetRefund returns the current value of the refund counter.
 func (s *mutableStateImpl) GetRefund() (refund uint64) {
-	log.Debugf("Mutable - GetRefund()")
-	defer func() { log.Debugf("Mutable - GetRefund() returns %v", refund) }()
+	// log.Debugf("Mutable - GetRefund()")
+	// defer func() { log.Debugf("Mutable - GetRefund() returns %v", refund) }()
 
 	refund = s.Refund
 	return
@@ -476,8 +475,8 @@ func (s *mutableStateImpl) GetRefund() (refund uint64) {
 
 // AddRefund adds gas to the refund counter.
 func (s *mutableStateImpl) AddRefund(gas uint64) {
-	log.Debugf("Mutable - AddRefund(%v)", gas)
-	defer func() { log.Debugf("Mutable - AddRefund(%v) returns void", gas) }()
+	// log.Debugf("Mutable - AddRefund(%v)", gas)
+	// defer func() { log.Debugf("Mutable - AddRefund(%v) returns void", gas) }()
 
 	original := s.Refund
 	s.Refund += gas
@@ -487,8 +486,8 @@ func (s *mutableStateImpl) AddRefund(gas uint64) {
 // SubRefund removes gas from the refund counter.
 // This method will panic if the refund counter goes below zero.
 func (s *mutableStateImpl) SubRefund(gas uint64) {
-	log.Debugf("Mutable - SubRefund(%v)", gas)
-	defer func() { log.Debugf("Mutable - SubRefund(%v) returns void", gas) }()
+	// log.Debugf("Mutable - SubRefund(%v)", gas)
+	// defer func() { log.Debugf("Mutable - SubRefund(%v) returns void", gas) }()
 
 	original := s.Refund
 	if s.Refund < gas {
@@ -500,8 +499,8 @@ func (s *mutableStateImpl) SubRefund(gas uint64) {
 
 // Check if given account was marked as self-destructed.
 func (s *mutableStateImpl) HasSelfDestructed(addr common.Address) (destructed bool) {
-	log.Debugf("Mutable - HasSelfDestructed(%v)", addr)
-	defer func() { log.Debugf("Mutable - HasSelfDestructed(%v) returns %v", addr, destructed) }()
+	// log.Debugf("Mutable - HasSelfDestructed(%v)", addr)
+	// defer func() { log.Debugf("Mutable - HasSelfDestructed(%v) returns %v", addr, destructed) }()
 
 	// Note: even though this is a read only query,
 	// but this account should pre exist in dirty accounts.
@@ -516,8 +515,8 @@ func (s *mutableStateImpl) HasSelfDestructed(addr common.Address) (destructed bo
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after SelfDestruct.
 func (s *mutableStateImpl) SelfDestruct(addr common.Address) {
-	log.Debugf("Mutable - SelfDestruct(%v)", addr)
-	defer func() { log.Debugf("Mutable - SelfDestruct(%v) returns void", addr) }()
+	// log.Debugf("Mutable - SelfDestruct(%v)", addr)
+	// defer func() { log.Debugf("Mutable - SelfDestruct(%v) returns void", addr) }()
 
 	acct := s.loadAccount(addr, true)
 
@@ -530,8 +529,8 @@ func (s *mutableStateImpl) SelfDestruct(addr common.Address) {
 
 // SelfDestruct given account according to EIP-6780.
 func (s *mutableStateImpl) Selfdestruct6780(addr common.Address) {
-	log.Debugf("Mutable - Selfdestruct6780(%v)", addr)
-	defer func() { log.Debugf("Mutable - Selfdestruct6780(%v) returns void", addr) }()
+	// log.Debugf("Mutable - Selfdestruct6780(%v)", addr)
+	// defer func() { log.Debugf("Mutable - Selfdestruct6780(%v) returns void", addr) }()
 
 	acct := s.loadAccount(addr, true)
 	_, ok := s.NewContracts[addr]
@@ -542,8 +541,8 @@ func (s *mutableStateImpl) Selfdestruct6780(addr common.Address) {
 
 // AddressInAccessList returns true if the given address is in the access list.
 func (s *mutableStateImpl) AddressInAccessList(addr common.Address) (ok bool) {
-	log.Debugf("Mutable - AddressInAccessList(%v)", addr)
-	defer func() { log.Debugf("Mutable - AddressInAccessList(%v) returns %v", addr, ok) }()
+	// log.Debugf("Mutable - AddressInAccessList(%v)", addr)
+	// defer func() { log.Debugf("Mutable - AddressInAccessList(%v) returns %v", addr, ok) }()
 
 	_, ok = s.AccessAddress[addr]
 	return
@@ -551,8 +550,8 @@ func (s *mutableStateImpl) AddressInAccessList(addr common.Address) (ok bool) {
 
 // AddAddressToAccessList adds the given address to the access list.
 func (s *mutableStateImpl) AddAddressToAccessList(addr common.Address) {
-	log.Debugf("Mutable - AddAddressToAccessList(%v)", addr)
-	defer func() { log.Debugf("Mutable - AddAddressToAccessList(%v) returns void", addr) }()
+	// log.Debugf("Mutable - AddAddressToAccessList(%v)", addr)
+	// defer func() { log.Debugf("Mutable - AddAddressToAccessList(%v) returns void", addr) }()
 
 	_, ok := s.AccessAddress[addr]
 	if ok {
@@ -564,8 +563,8 @@ func (s *mutableStateImpl) AddAddressToAccessList(addr common.Address) {
 
 // SlotInAccessList returns true if the given (address, slot)-tuple is in the access list.
 func (s *mutableStateImpl) SlotInAccessList(addr common.Address, slot common.Hash) (addressOk bool, slotOk bool) {
-	log.Debugf("Mutable - SlotInAccessList(%v, %v)", addr, slot)
-	defer func() { log.Debugf("Mutable - SlotInAccessList(%v, %v) returns %v, %v", addr, slot, addressOk, slotOk) }()
+	// log.Debugf("Mutable - SlotInAccessList(%v, %v)", addr, slot)
+	// defer func() { log.Debugf("Mutable - SlotInAccessList(%v, %v) returns %v, %v", addr, slot, addressOk, slotOk) }()
 
 	idx, ok := s.AccessAddress[addr]
 	if !ok {
@@ -586,8 +585,8 @@ func (s *mutableStateImpl) SlotInAccessList(addr common.Address, slot common.Has
 
 // AddSlotToAccessList adds the given (address, slot)-tuple to the access list.
 func (s *mutableStateImpl) AddSlotToAccessList(addr common.Address, slot common.Hash) {
-	log.Debugf("Mutable - AddSlotToAccessList(%v, %v)", addr, slot)
-	defer func() { log.Debugf("Mutable - AddSlotToAccessList(%v, %v) returns void", addr, slot) }()
+	// log.Debugf("Mutable - AddSlotToAccessList(%v, %v)", addr, slot)
+	// defer func() { log.Debugf("Mutable - AddSlotToAccessList(%v, %v) returns void", addr, slot) }()
 
 	idx, ok := s.AccessAddress[addr]
 	if !ok {
@@ -623,13 +622,13 @@ func (s *mutableStateImpl) PointCache() *utils.PointCache {
 // GetLogs returns the logs matching the specified transaction hash, and annotates
 // them with the given blockNumber and blockHash.
 func (s *mutableStateImpl) GetLogs(hash common.Hash, blockNumber uint64, blockHash common.Hash) (logs []*types.Log) {
-	log.Debugf("Mutable - GetLogs(%v, %v, %v)", hash, blockNumber, blockHash)
+	// log.Debugf("Mutable - GetLogs(%v, %v, %v)", hash, blockNumber, blockHash)
 	defer func() {
 		str := ""
 		for _, l := range logs {
 			str += fmt.Sprintf("%v;", l)
 		}
-		log.Debugf("Mutable - GetLogs(%v, %v, %v) returns %v", hash, blockNumber, blockHash, str)
+		// log.Debugf("Mutable - GetLogs(%v, %v, %v) returns %v", hash, blockNumber, blockHash, str)
 	}()
 
 	if s.TxHash.Cmp(hash) == 0 {
@@ -647,8 +646,8 @@ func (s *mutableStateImpl) GetLogs(hash common.Hash, blockNumber uint64, blockHa
 
 // Add log adds a log to the log list.
 func (s *mutableStateImpl) AddLog(logs *types.Log) {
-	log.Debugf("Mutable - AddLog(%v)", logs)
-	defer func() { log.Debugf("Mutable - AddLog(%v) returns void", logs) }()
+	// log.Debugf("Mutable - AddLog(%v)", logs)
+	// defer func() { log.Debugf("Mutable - AddLog(%v) returns void", logs) }()
 
 	logs.TxHash = s.TxHash
 	logs.TxIndex = uint(s.TxIdx)
@@ -663,15 +662,15 @@ func (s *mutableStateImpl) AddLog(logs *types.Log) {
 
 // AddPreimage records a SHA3 preimage seen by the VM.
 func (s *mutableStateImpl) AddPreimage(key common.Hash, val []byte) {
-	log.Debugf("Mutable - AddPreimage(%v, %v)", key, hex.EncodeToString(val))
-	defer func() { log.Debugf("Mutable - AddPreimage(%v, %v) returns void", key, hex.EncodeToString(val)) }()
+	// log.Debugf("Mutable - AddPreimage(%v, %v)", key, hex.EncodeToString(val))
+	// defer func() { log.Debugf("Mutable - AddPreimage(%v, %v) returns void", key, hex.EncodeToString(val)) }()
 	// Not supported.
 }
 
 // Witness retrieves the current state witness being collected.
 func (s *mutableStateImpl) Witness() *stateless.Witness {
-	log.Debugf("Mutable - Witness()")
-	defer func() { log.Debugf("Mutable - Witness() returns nil") }()
+	// log.Debugf("Mutable - Witness()")
+	// defer func() { log.Debugf("Mutable - Witness() returns nil") }()
 
 	// Not supported.
 	return nil
@@ -679,8 +678,8 @@ func (s *mutableStateImpl) Witness() *stateless.Witness {
 
 // Snapshot returns an identifier for the current revision of the state.
 func (s *mutableStateImpl) Snapshot() (res int) {
-	log.Debugf("Mutable - Snapshot()")
-	defer func() { log.Debugf("Mutable - Snapshot() returns %v", res) }()
+	// log.Debugf("Mutable - Snapshot()")
+	// defer func() { log.Debugf("Mutable - Snapshot() returns %v", res) }()
 
 	res = s.snapshotId
 	s.snapshotId++
@@ -696,8 +695,8 @@ func (s *mutableStateImpl) Snapshot() (res int) {
 
 // RevertToSnapshot reverts all state changes made since the given revision.
 func (s *mutableStateImpl) RevertToSnapshot(ti int) {
-	log.Debugf("Mutable - RevertToSnapshot(%v)", ti)
-	defer func() { log.Debugf("Mutable - RevertToSnapshot(%v) returns void", ti) }()
+	// log.Debugf("Mutable - RevertToSnapshot(%v)", ti)
+	// defer func() { log.Debugf("Mutable - RevertToSnapshot(%v) returns void", ti) }()
 
 	for i := len(s.Journals) - 1; i >= 0; i-- {
 		entry := s.Journals[i]
@@ -721,8 +720,8 @@ func (s *mutableStateImpl) RevertToSnapshot(ti int) {
 // the journal as well as the refunds. Finalise, however, will not push any updates
 // into the tries just yet. Only IntermediateRoot or Commit will do that.
 func (s *mutableStateImpl) Finalise(deleteEmptyObjects bool) {
-	log.Debugf("Mutable - Finalise(%v)", deleteEmptyObjects)
-	defer func() { log.Debugf("Mutable - Finalise(%v) returns void", deleteEmptyObjects) }()
+	// log.Debugf("Mutable - Finalise(%v)", deleteEmptyObjects)
+	// defer func() { log.Debugf("Mutable - Finalise(%v) returns void", deleteEmptyObjects) }()
 
 	for addr, acct := range s.DirtyAccounts {
 		if deleteEmptyObjects && acct.Empty() {
@@ -749,10 +748,10 @@ func (s *mutableStateImpl) Finalise(deleteEmptyObjects bool) {
 // It is called in between transactions to get the root hash that
 // goes into transaction receipts.
 func (s *mutableStateImpl) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
-	log.Debugf("Mutable - IntermediateRoot(%v)", deleteEmptyObjects)
-	defer func() {
-		log.Debugf("Mutable - IntermediateRoot(%v) returns %v", deleteEmptyObjects, types.EmptyRootHash)
-	}()
+	// log.Debugf("Mutable - IntermediateRoot(%v)", deleteEmptyObjects)
+	// defer func() {
+	// 	log.Debugf("Mutable - IntermediateRoot(%v) returns %v", deleteEmptyObjects, types.EmptyRootHash)
+	// }()
 
 	s.Finalise(deleteEmptyObjects)
 	// Not supported, so empty root hash is returned
@@ -769,10 +768,10 @@ func (s *mutableStateImpl) IntermediateRoot(deleteEmptyObjects bool) common.Hash
 // The associated block number of the state transition is also provided
 // for more chain context.
 func (s *mutableStateImpl) Commit(block uint64, rootHash common.Hash, deleteEmptyObjects bool) (res common.Hash, err error) {
-	log.Debugf("Mutable - Commit(%v, %v, %v)", block, rootHash, deleteEmptyObjects)
-	defer func() {
-		log.Debugf("Mutable - Commit(%v, %v, %v) returns (%v, %v)", block, rootHash, deleteEmptyObjects, res, err)
-	}()
+	// log.Debugf("Mutable - Commit(%v, %v, %v)", block, rootHash, deleteEmptyObjects)
+	// defer func() {
+	// 	log.Debugf("Mutable - Commit(%v, %v, %v) returns (%v, %v)", block, rootHash, deleteEmptyObjects, res, err)
+	// }()
 
 	s.IntermediateRoot(deleteEmptyObjects)
 	res, err = s.parent.Commit(block, rootHash)

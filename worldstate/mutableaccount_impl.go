@@ -80,8 +80,8 @@ func (acct *mutableAccountImpl) interpretVersion() uint64 {
 
 // Empty returns if this account is empty.
 func (acct *mutableAccountImpl) Empty() (empty bool) {
-	log.Debugf("Account %v - Empty()", acct.addr)
-	defer func() { log.Debugf("Account %v - Empty() returns %v", acct.addr, empty) }()
+	// log.Debugf("Account %v - Empty()", acct.addr)
+	// defer func() { log.Debugf("Account %v - Empty() returns %v", acct.addr, empty) }()
 
 	empty = acct.nonce == 0 &&
 		acct.balance.IsZero() &&
@@ -91,8 +91,8 @@ func (acct *mutableAccountImpl) Empty() (empty bool) {
 
 // Exist returns if this account exists.
 func (acct *mutableAccountImpl) Exists(isEIP158 bool) (exists bool) {
-	log.Debugf("Account %v - Exists()", acct.addr)
-	defer func() { log.Debugf("Account %v - Exists() returns %v", acct.addr, exists) }()
+	// log.Debugf("Account %v - Exists()", acct.addr)
+	// defer func() { log.Debugf("Account %v - Exists() returns %v", acct.addr, exists) }()
 
 	if acct.interpretVersion() == notExisted {
 		exists = false
@@ -139,8 +139,8 @@ func (acct *mutableAccountImpl) DirtyStorage() bool {
 
 // GetState returns the given storage slot value of this account.
 func (acct *mutableAccountImpl) GetState(key common.Hash) (res common.Hash) {
-	log.Debugf("Account %v - GetState(%v)", acct.addr, key)
-	defer func() { log.Debugf("Account %v - GetState(%v) returns %v", acct.addr, key, res) }()
+	// log.Debugf("Account %v - GetState(%v)", acct.addr, key)
+	// defer func() { log.Debugf("Account %v - GetState(%v) returns %v", acct.addr, key, res) }()
 
 	if !acct.dirtyStorage {
 		res = common.Hash{}
@@ -162,10 +162,10 @@ func (acct *mutableAccountImpl) GetState(key common.Hash) (res common.Hash) {
 
 // Create attempts to create this non-existence account.
 func (acct *mutableAccountImpl) Create() (revert func()) {
-	log.Debugf("Account %v - Create() [Before %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	defer func() {
-		log.Debugf("Account %v - Create() returns void [After %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	}()
+	// log.Debugf("Account %v - Create() [Before %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// defer func() {
+	// 	log.Debugf("Account %v - Create() returns void [After %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// }()
 
 	if acct.interpretVersion() == beingDeleted {
 		log.Panicf("Cannot create to overwrite account being deleted")
@@ -185,10 +185,10 @@ func (acct *mutableAccountImpl) Create() (revert func()) {
 
 // SetNonce attempts to set the nonce of this account.
 func (acct *mutableAccountImpl) SetNonce(nonce uint64) (revert func()) {
-	log.Debugf("Account %v - SetNonce(%v) [Before %v-%v-%v-%v-%v]", acct.addr, nonce, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	defer func() {
-		log.Debugf("Account %v - SetNonce(%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, nonce, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	}()
+	// log.Debugf("Account %v - SetNonce(%v) [Before %v-%v-%v-%v-%v]", acct.addr, nonce, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// defer func() {
+	// 	log.Debugf("Account %v - SetNonce(%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, nonce, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// }()
 
 	optionalRevert := func() {}
 	if acct.interpretVersion() == notExisted {
@@ -210,10 +210,10 @@ func (acct *mutableAccountImpl) SetNonce(nonce uint64) (revert func()) {
 
 // SetBalance attempts to set the balance of this account.
 func (acct *mutableAccountImpl) SetBalance(balance *uint256.Int) (revert func()) {
-	log.Debugf("Account %v - SetBalance(%v) [Before %v-%v-%v-%v-%v]", acct.addr, balance, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	defer func() {
-		log.Debugf("Account %v - SetBalance(%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, balance, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	}()
+	// log.Debugf("Account %v - SetBalance(%v) [Before %v-%v-%v-%v-%v]", acct.addr, balance, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// defer func() {
+	// 	log.Debugf("Account %v - SetBalance(%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, balance, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// }()
 
 	optionalRevert := func() {}
 	if acct.interpretVersion() == notExisted {
@@ -235,10 +235,10 @@ func (acct *mutableAccountImpl) SetBalance(balance *uint256.Int) (revert func())
 
 // SetCode attempts to set the code of this account.
 func (acct *mutableAccountImpl) SetCode(code []byte) (revert func()) {
-	log.Debugf("Account %v - SetCode(%v) [Before %v-%v-%v-%v-%v]", acct.addr, len(code), acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	defer func() {
-		log.Debugf("Account %v - SetCode(%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, len(code), acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	}()
+	// log.Debugf("Account %v - SetCode(%v) [Before %v-%v-%v-%v-%v]", acct.addr, len(code), acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// defer func() {
+	// 	log.Debugf("Account %v - SetCode(%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, len(code), acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// }()
 
 	optionalRevert := func() {}
 	if acct.interpretVersion() == notExisted {
@@ -289,10 +289,10 @@ func (acct *mutableAccountImpl) SetCode(code []byte) (revert func()) {
 
 // SetState attempts to set the storage slot value of this account.
 func (acct *mutableAccountImpl) SetState(key common.Hash, val common.Hash) (revert func()) {
-	log.Debugf("Account %v - SetState(%v,%v) [Before %v-%v-%v-%v-%v]", acct.addr, key, val, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	defer func() {
-		log.Debugf("Account %v - SetState(%v,%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, key, val, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	}()
+	// log.Debugf("Account %v - SetState(%v,%v) [Before %v-%v-%v-%v-%v]", acct.addr, key, val, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// defer func() {
+	// 	log.Debugf("Account %v - SetState(%v,%v) returns void [After %v-%v-%v-%v-%v]", acct.addr, key, val, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// }()
 
 	optionalRevert := func() {}
 	if acct.interpretVersion() == notExisted {
@@ -329,8 +329,8 @@ func (acct *mutableAccountImpl) SetState(key common.Hash, val common.Hash) (reve
 
 // HasSelfDestructed checks if this account has been self destructed.
 func (acct *mutableAccountImpl) HasSelfDestructed() (res bool) {
-	log.Debugf("Account %v - HasSelfDestructed()", acct.addr)
-	defer func() { log.Debugf("Account %v - HasSelfDestructed() returns %v", acct.addr, res) }()
+	// log.Debugf("Account %v - HasSelfDestructed()", acct.addr)
+	// defer func() { log.Debugf("Account %v - HasSelfDestructed() returns %v", acct.addr, res) }()
 
 	res = acct.interpretVersion() == beingDeleted
 	return
@@ -338,10 +338,10 @@ func (acct *mutableAccountImpl) HasSelfDestructed() (res bool) {
 
 // SelfDestruct attempts to destruct this account.
 func (acct *mutableAccountImpl) SelfDestruct() (revert func()) {
-	log.Debugf("Account %v - SelfDestruct() [Before %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	defer func() {
-		log.Debugf("Account %v - SelfDestruct() returns void [After %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
-	}()
+	// log.Debugf("Account %v - SelfDestruct() [Before %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// defer func() {
+	// 	log.Debugf("Account %v - SelfDestruct() returns void [After %v-%v-%v-%v-%v]", acct.addr, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
+	// }()
 
 	if acct.interpretVersion() == beingDeleted {
 		// Account can be destructed again with no effect on the account state.
