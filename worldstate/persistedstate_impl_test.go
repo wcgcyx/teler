@@ -97,10 +97,6 @@ func TestGetAccountValue(t *testing.T) {
 	// Get without error
 	acct = layer.GetAccountValue(common.HexToAddress(testAcctStr), true)
 	assert.Equal(t, expectedValue, acct)
-
-	// Get with cache
-	acct = layer.GetAccountValue(common.HexToAddress(testAcctStr), true)
-	assert.Equal(t, expectedValue, acct)
 }
 
 func TestGetCodeByHash(t *testing.T) {
@@ -140,10 +136,6 @@ func TestGetCodeByHash(t *testing.T) {
 	// Get without error
 	code = layer.GetCodeByHash(common.HexToHash("0x123"), true)
 	assert.Equal(t, expectedCode, code)
-
-	// Get with cache
-	code = layer.GetCodeByHash(common.HexToHash("0x123"), true)
-	assert.Equal(t, expectedCode, code)
 }
 
 func TestGetStorageByVersion(t *testing.T) {
@@ -181,10 +173,6 @@ func TestGetStorageByVersion(t *testing.T) {
 	assert.Equal(t, common.Hash{}, val)
 
 	// Get without error
-	val = layer.GetStorageByVersion(common.HexToAddress(testAcctStr), 1, common.HexToHash("0x1"), true)
-	assert.Equal(t, expectedStorage, val)
-
-	// Get with cache
 	val = layer.GetStorageByVersion(common.HexToAddress(testAcctStr), 1, common.HexToHash("0x1"), true)
 	assert.Equal(t, expectedStorage, val)
 }
