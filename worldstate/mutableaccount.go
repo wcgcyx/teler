@@ -58,6 +58,11 @@ type mutableAccount interface {
 	// SetState attempts to set the storage slot value of this account.
 	SetState(key common.Hash, val common.Hash) (revert func())
 
+	// OverrideStorage replaces the entire storage
+	// This function should only be used for debugging and the mutations
+	// must be discarded afterwards.
+	OverrideStorage(storage map[common.Hash]common.Hash) (revert func())
+
 	// HasSelfDestructed checks if this account has been self destructed.
 	HasSelfDestructed() bool
 
@@ -65,7 +70,7 @@ type mutableAccount interface {
 	SelfDestruct() (revert func())
 
 	// GetFinalized gets the finalized state after all state mutation.
-	GetFinalized() (finalState itypes.AccountValue, knownCode []byte, knownCodeDiff map[common.Hash]int64, knownStorage map[common.Hash]common.Hash)
+	GetFinalized() (finalState itypes.AccountValue, knownCode []byte, knownCodeDiff map[common.Hash]int64, knownStorage map[common.Hash]common.Hash, overriden bool)
 
 	// Copy creates a deep copy of this account.
 	Copy() mutableAccount

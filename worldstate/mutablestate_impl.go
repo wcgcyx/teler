@@ -400,6 +400,17 @@ func (s *mutableStateImpl) SetCode(addr common.Address, code []byte) {
 	s.recordJournal(acct.SetCode(code))
 }
 
+// SetStorage replaces the entire storage for the specified account with given
+// storage. This function should only be used for debugging and the mutations
+// must be discarded afterwards.
+func (s *mutableStateImpl) SetStorage(addr common.Address, storage map[common.Hash]common.Hash) {
+	// log.Debugf("Mutable - SetStorage(%v, %v)", addr, storage)
+	// defer func() { log.Debugf("Mutable - SetStorage(%v, %v) returns void", addr, storage) }()
+
+	acct := s.loadAccount(addr, true)
+	s.recordJournal(acct.OverrideStorage(storage))
+}
+
 // SetState sets the value associated with the specific key.
 func (s *mutableStateImpl) SetState(addr common.Address, key common.Hash, val common.Hash) {
 	// log.Debugf("Mutable - SetState(%v, %v, %v)", addr, key, val)
