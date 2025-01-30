@@ -76,7 +76,7 @@ type testBackend struct {
 
 // newTestBackend creates a new test backend. OBS: After test is done, teardown must be
 // invoked in order to release associated resources.
-func newTestBackend(t *testing.T, subDir string, n int, gspec *core.Genesis, generator func(i int, b *core.BlockGen)) *testBackend {
+func newTestBackend(t *testing.T, engine consensus.Engine, subDir string, n int, gspec *core.Genesis, generator func(i int, b *core.BlockGen)) *testBackend {
 	// Create blockchain
 	mainnet := gspec
 	bc, err := blockchain.NewBlockchainImpl(context.Background(), blockchain.Opts{
@@ -108,11 +108,11 @@ func newTestBackend(t *testing.T, subDir string, n int, gspec *core.Genesis, gen
 		t.Fatalf("failed to create world archive: %v", err)
 	}
 	// Create block processor
-	pr := processor.NewBlockProcessorWithEngine(mainnet.Config, bc, beacon.New(ethash.NewFaker()))
+	pr := processor.NewBlockProcessorWithEngine(mainnet.Config, bc, engine)
 	be := backend.NewBackendImpl(pr, mainnet.Config, bc, archive)
 
 	// Generate blocks for testing
-	_, blocks, _ := core.GenerateChainWithGenesis(gspec, ethash.NewFaker(), n, generator)
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, n, generator)
 
 	// Import the canonical chain
 	be.ImportBlocks(context.Background(), blocks)
@@ -258,7 +258,7 @@ func TestTraceCall(t *testing.T) {
 	genBlocks := 10
 	signer := types.HomesteadSigner{}
 	nonce := uint64(0)
-	backend := newTestBackend(t, "t1", genBlocks, genesis, func(i int, b *core.BlockGen) {
+	backend := newTestBackend(t, ethash.NewFaker(), "t1", genBlocks, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
@@ -478,7 +478,7 @@ func TestTraceTransaction(t *testing.T) {
 	}
 	target := common.Hash{}
 	signer := types.HomesteadSigner{}
-	backend := newTestBackend(t, "t2", 1, genesis, func(i int, b *core.BlockGen) {
+	backend := newTestBackend(t, ethash.NewFaker(), "t2", 1, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
@@ -542,7 +542,7 @@ func TestTraceBlock(t *testing.T) {
 	genBlocks := 10
 	signer := types.HomesteadSigner{}
 	var txHash common.Hash
-	backend := newTestBackend(t, "t3", genBlocks, genesis, func(i int, b *core.BlockGen) {
+	backend := newTestBackend(t, ethash.NewFaker(), "t3", genBlocks, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
@@ -645,7 +645,7 @@ func TestTracingWithOverrides(t *testing.T) {
 	}
 	genBlocks := 10
 	signer := types.HomesteadSigner{}
-	backend := newTestBackend(t, "t4", genBlocks, genesis, func(i int, b *core.BlockGen) {
+	backend := newTestBackend(t, ethash.NewFaker(), "t4", genBlocks, genesis, func(i int, b *core.BlockGen) {
 		// Transfer from account[0] to account[1]
 		//    value: 1000 wei
 		//    fee:   0 wei
@@ -1001,7 +1001,7 @@ func TestTraceBlockWithBasefee(t *testing.T) {
 	signer := types.HomesteadSigner{}
 	var txHash common.Hash
 	var baseFee = new(big.Int)
-	backend := newTestBackend(t, "t5", genBlocks, genesis, func(i int, b *core.BlockGen) {
+	backend := newTestBackend(t, beacon.NewFaker(), "t5", genBlocks, genesis, func(i int, b *core.BlockGen) {
 		tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
 			Nonce:    uint64(i),
 			To:       &target,
