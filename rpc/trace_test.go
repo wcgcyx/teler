@@ -621,3 +621,365 @@ func TestTraceBlock(t *testing.T) {
 		}
 	}
 }
+
+func TestTracingWithOverrides(t *testing.T) {
+	t.Parallel()
+	// Initialize test accounts
+	accounts := newAccounts(3)
+	storageAccount := common.Address{0x13, 37}
+	genesis := &core.Genesis{
+		Config: params.TestChainConfig,
+		Alloc: types.GenesisAlloc{
+			accounts[0].addr: {Balance: big.NewInt(params.Ether)},
+			accounts[1].addr: {Balance: big.NewInt(params.Ether)},
+			accounts[2].addr: {Balance: big.NewInt(params.Ether)},
+			// An account with existing storage
+			storageAccount: {
+				Balance: new(big.Int),
+				Storage: map[common.Hash]common.Hash{
+					common.HexToHash("0x03"): common.HexToHash("0x33"),
+					common.HexToHash("0x04"): common.HexToHash("0x44"),
+				},
+			},
+		},
+	}
+	genBlocks := 10
+	signer := types.HomesteadSigner{}
+	backend := newTestBackend(t, "t4", genBlocks, genesis, func(i int, b *core.BlockGen) {
+		// Transfer from account[0] to account[1]
+		//    value: 1000 wei
+		//    fee:   0 wei
+		tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
+			Nonce:    uint64(i),
+			To:       &accounts[1].addr,
+			Value:    big.NewInt(1000),
+			Gas:      params.TxGas,
+			GasPrice: b.BaseFee(),
+			Data:     nil}),
+			signer, accounts[0].key)
+		b.AddTx(tx)
+	})
+	defer backend.teardown()
+
+	api := traceAPIHandler{
+		be: backend.be,
+		opts: Opts{
+			RPCGasCap: backend.RPCGasCap(),
+		},
+	}
+
+	randomAccounts := newAccounts(3)
+	type res struct {
+		Gas         int
+		Failed      bool
+		ReturnValue string
+	}
+	var testSuite = []struct {
+		blockNumber rpc.BlockNumber
+		call        TransactionArgs
+		config      *TraceCallConfig
+		expectErr   error
+		want        string
+	}{
+		// Call which can only succeed if state is state overridden
+		{
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From:  &randomAccounts[0].addr,
+				To:    &randomAccounts[1].addr,
+				Value: (*hexutil.Big)(big.NewInt(1000)),
+			},
+			config: &TraceCallConfig{
+				StateOverrides: &StateOverride{
+					randomAccounts[0].addr: OverrideAccount{Balance: newRPCBalance(new(big.Int).Mul(big.NewInt(1), big.NewInt(params.Ether)))},
+				},
+			},
+			want: `{"gas":21000,"failed":false,"returnValue":""}`,
+		},
+		// Invalid call without state overriding
+		{
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From:  &randomAccounts[0].addr,
+				To:    &randomAccounts[1].addr,
+				Value: (*hexutil.Big)(big.NewInt(1000)),
+			},
+			config:    &TraceCallConfig{},
+			expectErr: core.ErrInsufficientFunds,
+		},
+		// Successful simple contract call
+		//
+		// // SPDX-License-Identifier: GPL-3.0
+		//
+		//  pragma solidity >=0.7.0 <0.8.0;
+		//
+		//  /**
+		//   * @title Storage
+		//   * @dev Store & retrieve value in a variable
+		//   */
+		//  contract Storage {
+		//      uint256 public number;
+		//      constructor() {
+		//          number = block.number;
+		//      }
+		//  }
+		{
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &randomAccounts[0].addr,
+				To:   &randomAccounts[2].addr,
+				Data: newRPCBytes(common.Hex2Bytes("8381f58a")), // call number()
+			},
+			config: &TraceCallConfig{
+				//Tracer: &tracer,
+				StateOverrides: &StateOverride{
+					randomAccounts[2].addr: OverrideAccount{
+						Code:      newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060285760003560e01c80638381f58a14602d575b600080fd5b60336049565b6040518082815260200191505060405180910390f35b6000548156fea2646970667358221220eab35ffa6ab2adfe380772a48b8ba78e82a1b820a18fcb6f59aa4efb20a5f60064736f6c63430007040033")),
+						StateDiff: newStates([]common.Hash{{}}, []common.Hash{common.BigToHash(big.NewInt(123))}),
+					},
+				},
+			},
+			want: `{"gas":23347,"failed":false,"returnValue":"000000000000000000000000000000000000000000000000000000000000007b"}`,
+		},
+		{ // Override blocknumber
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &accounts[0].addr,
+				// BLOCKNUMBER PUSH1 MSTORE
+				Input: newRPCBytes(common.Hex2Bytes("4360005260206000f3")),
+			},
+			config: &TraceCallConfig{
+				BlockOverrides: &BlockOverrides{Number: (*hexutil.Big)(big.NewInt(0x1337))},
+			},
+			want: `{"gas":59537,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000001337"}`,
+		},
+		{ // Override blocknumber, and query a blockhash
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &accounts[0].addr,
+				Input: &hexutil.Bytes{
+					0x60, 0x00, 0x40, // BLOCKHASH(0)
+					0x60, 0x00, 0x52, // STORE memory offset 0
+					0x61, 0x13, 0x36, 0x40, // BLOCKHASH(0x1336)
+					0x60, 0x20, 0x52, // STORE memory offset 32
+					0x61, 0x13, 0x37, 0x40, // BLOCKHASH(0x1337)
+					0x60, 0x40, 0x52, // STORE memory offset 64
+					0x60, 0x60, 0x60, 0x00, 0xf3, // RETURN (0-96)
+
+				}, // blocknumber
+			},
+			config: &TraceCallConfig{
+				BlockOverrides: &BlockOverrides{Number: (*hexutil.Big)(big.NewInt(0x1337))},
+			},
+			want: `{"gas":72666,"failed":false,"returnValue":"000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"}`,
+		},
+		/*
+			pragma solidity =0.8.12;
+
+			contract Test {
+			    uint private x;
+
+			    function test2() external {
+			        x = 1337;
+			        revert();
+			    }
+
+			    function test() external returns (uint) {
+			        x = 1;
+			        try this.test2() {} catch (bytes memory) {}
+			        return x;
+			    }
+			}
+		*/
+		{ // First with only code override, not storage override
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &randomAccounts[0].addr,
+				To:   &randomAccounts[2].addr,
+				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
+			},
+			config: &TraceCallConfig{
+				StateOverrides: &StateOverride{
+					randomAccounts[2].addr: OverrideAccount{
+						Code: newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060325760003560e01c806366e41cb7146037578063f8a8fd6d14603f575b600080fd5b603d6057565b005b60456062565b60405190815260200160405180910390f35b610539600090815580fd5b60006001600081905550306001600160a01b03166366e41cb76040518163ffffffff1660e01b8152600401600060405180830381600087803b15801560a657600080fd5b505af192505050801560b6575060015b60e9573d80801560e1576040519150601f19603f3d011682016040523d82523d6000602084013e60e6565b606091505b50505b506000549056fea26469706673582212205ce45de745a5308f713cb2f448589177ba5a442d1a2eff945afaa8915961b4d064736f6c634300080c0033")),
+					},
+				},
+			},
+			want: `{"gas":44100,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000001"}`,
+		},
+		{ // Same again, this time with storage override
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &randomAccounts[0].addr,
+				To:   &randomAccounts[2].addr,
+				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
+			},
+			config: &TraceCallConfig{
+				StateOverrides: &StateOverride{
+					randomAccounts[2].addr: OverrideAccount{
+						Code:  newRPCBytes(common.Hex2Bytes("6080604052348015600f57600080fd5b506004361060325760003560e01c806366e41cb7146037578063f8a8fd6d14603f575b600080fd5b603d6057565b005b60456062565b60405190815260200160405180910390f35b610539600090815580fd5b60006001600081905550306001600160a01b03166366e41cb76040518163ffffffff1660e01b8152600401600060405180830381600087803b15801560a657600080fd5b505af192505050801560b6575060015b60e9573d80801560e1576040519150601f19603f3d011682016040523d82523d6000602084013e60e6565b606091505b50505b506000549056fea26469706673582212205ce45de745a5308f713cb2f448589177ba5a442d1a2eff945afaa8915961b4d064736f6c634300080c0033")),
+						State: newStates([]common.Hash{{}}, []common.Hash{{}}),
+					},
+				},
+			},
+			//want: `{"gas":46900,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000539"}`,
+			want: `{"gas":44100,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000001"}`,
+		},
+		{ // No state override
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &randomAccounts[0].addr,
+				To:   &storageAccount,
+				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
+			},
+			config: &TraceCallConfig{
+				StateOverrides: &StateOverride{
+					storageAccount: OverrideAccount{
+						Code: newRPCBytes([]byte{
+							// SLOAD(3) + SLOAD(4) (which is 0x77)
+							byte(vm.PUSH1), 0x04,
+							byte(vm.SLOAD),
+							byte(vm.PUSH1), 0x03,
+							byte(vm.SLOAD),
+							byte(vm.ADD),
+							// 0x77 -> MSTORE(0)
+							byte(vm.PUSH1), 0x00,
+							byte(vm.MSTORE),
+							// RETURN (0, 32)
+							byte(vm.PUSH1), 32,
+							byte(vm.PUSH1), 00,
+							byte(vm.RETURN),
+						}),
+					},
+				},
+			},
+			want: `{"gas":25288,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000077"}`,
+		},
+		{ // Full state override
+			// The original storage is
+			// 3: 0x33
+			// 4: 0x44
+			// With a full override, where we set 3:0x11, the slot 4 should be
+			// removed. So SLOT(3)+SLOT(4) should be 0x11.
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &randomAccounts[0].addr,
+				To:   &storageAccount,
+				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
+			},
+			config: &TraceCallConfig{
+				StateOverrides: &StateOverride{
+					storageAccount: OverrideAccount{
+						Code: newRPCBytes([]byte{
+							// SLOAD(3) + SLOAD(4) (which is now 0x11 + 0x00)
+							byte(vm.PUSH1), 0x04,
+							byte(vm.SLOAD),
+							byte(vm.PUSH1), 0x03,
+							byte(vm.SLOAD),
+							byte(vm.ADD),
+							// 0x11 -> MSTORE(0)
+							byte(vm.PUSH1), 0x00,
+							byte(vm.MSTORE),
+							// RETURN (0, 32)
+							byte(vm.PUSH1), 32,
+							byte(vm.PUSH1), 00,
+							byte(vm.RETURN),
+						}),
+						State: newStates(
+							[]common.Hash{common.HexToHash("0x03")},
+							[]common.Hash{common.HexToHash("0x11")}),
+					},
+				},
+			},
+			want: `{"gas":25288,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000011"}`,
+		},
+		{ // Partial state override
+			// The original storage is
+			// 3: 0x33
+			// 4: 0x44
+			// With a partial override, where we set 3:0x11, the slot 4 as before.
+			// So SLOT(3)+SLOT(4) should be 0x55.
+			blockNumber: rpc.LatestBlockNumber,
+			call: TransactionArgs{
+				From: &randomAccounts[0].addr,
+				To:   &storageAccount,
+				Data: newRPCBytes(common.Hex2Bytes("f8a8fd6d")), //
+			},
+			config: &TraceCallConfig{
+				StateOverrides: &StateOverride{
+					storageAccount: OverrideAccount{
+						Code: newRPCBytes([]byte{
+							// SLOAD(3) + SLOAD(4) (which is now 0x11 + 0x44)
+							byte(vm.PUSH1), 0x04,
+							byte(vm.SLOAD),
+							byte(vm.PUSH1), 0x03,
+							byte(vm.SLOAD),
+							byte(vm.ADD),
+							// 0x55 -> MSTORE(0)
+							byte(vm.PUSH1), 0x00,
+							byte(vm.MSTORE),
+							// RETURN (0, 32)
+							byte(vm.PUSH1), 32,
+							byte(vm.PUSH1), 00,
+							byte(vm.RETURN),
+						}),
+						StateDiff: map[common.Hash]common.Hash{
+							common.HexToHash("0x03"): common.HexToHash("0x11"),
+						},
+					},
+				},
+			},
+			want: `{"gas":25288,"failed":false,"returnValue":"0000000000000000000000000000000000000000000000000000000000000055"}`,
+		},
+	}
+	for i, tc := range testSuite {
+		result, err := api.Call(context.Background(), tc.call, rpc.BlockNumberOrHash{BlockNumber: &tc.blockNumber}, tc.config)
+		if tc.expectErr != nil {
+			if err == nil {
+				t.Errorf("test %d: want error %v, have nothing", i, tc.expectErr)
+				continue
+			}
+			if !errors.Is(err, tc.expectErr) {
+				t.Errorf("test %d: error mismatch, want %v, have %v", i, tc.expectErr, err)
+			}
+			continue
+		}
+		if err != nil {
+			t.Errorf("test %d: want no error, have %v", i, err)
+			continue
+		}
+		// Turn result into res-struct
+		var (
+			have res
+			want res
+		)
+		resBytes, _ := json.Marshal(result)
+		json.Unmarshal(resBytes, &have)
+		json.Unmarshal([]byte(tc.want), &want)
+		if !reflect.DeepEqual(have, want) {
+			t.Logf("result: %v\n", string(resBytes))
+			t.Errorf("test %d, result mismatch, have\n%v\n, want\n%v\n", i, have, want)
+		}
+	}
+}
+
+func newRPCBalance(balance *big.Int) *hexutil.Big {
+	rpcBalance := (*hexutil.Big)(balance)
+	return rpcBalance
+}
+
+func newRPCBytes(bytes []byte) *hexutil.Bytes {
+	rpcBytes := hexutil.Bytes(bytes)
+	return &rpcBytes
+}
+
+func newStates(keys []common.Hash, vals []common.Hash) map[common.Hash]common.Hash {
+	if len(keys) != len(vals) {
+		panic("invalid input")
+	}
+	m := make(map[common.Hash]common.Hash)
+	for i := 0; i < len(keys); i++ {
+		m[keys[i]] = vals[i]
+	}
+	return m
+}
