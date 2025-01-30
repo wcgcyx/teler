@@ -308,9 +308,7 @@ func (diff *StateOverride) Apply(statedb worldstate.MutableWorldState) error {
 		}
 		// Replace entire state if caller requires.
 		if account.State != nil {
-			for key, val := range account.State {
-				statedb.SetState(addr, key, val)
-			}
+			statedb.SetStorage(addr, account.State)
 		}
 		// Apply state diff into specified accounts.
 		if account.StateDiff != nil {

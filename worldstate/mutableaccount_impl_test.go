@@ -781,7 +781,7 @@ func TestGetFinalized(t *testing.T) {
 	acct.SetState(common.HexToHash("0x1"), common.HexToHash("0x12"))
 	acct.SetState(common.HexToHash("0x2"), common.HexToHash("0x22"))
 
-	finalState, knownCode, knownCodeDiff, knownStorage := acct.GetFinalized()
+	finalState, knownCode, knownCodeDiff, knownStorage, overriden := acct.GetFinalized()
 	assert.Equal(t, uint64(1), finalState.Nonce)
 	assert.Equal(t, uint256.NewInt(10), finalState.Balance)
 	assert.Equal(t, crypto.Keccak256Hash([]byte{1, 2, 3}), finalState.CodeHash)
@@ -793,9 +793,10 @@ func TestGetFinalized(t *testing.T) {
 	assert.Equal(t, 2, len(knownStorage))
 	assert.Equal(t, common.HexToHash("0x12"), knownStorage[common.HexToHash("0x1")])
 	assert.Equal(t, common.HexToHash("0x22"), knownStorage[common.HexToHash("0x2")])
+	assert.Equal(t, false, overriden)
 
 	acct.SelfDestruct()
-	finalState, knownCode, knownCodeDiff, knownStorage = acct.GetFinalized()
+	finalState, knownCode, knownCodeDiff, knownStorage, overriden = acct.GetFinalized()
 	assert.Equal(t, uint64(0), finalState.Nonce)
 	assert.Equal(t, uint256.NewInt(0), finalState.Balance)
 	assert.Equal(t, types.EmptyCodeHash, finalState.CodeHash)
@@ -805,6 +806,7 @@ func TestGetFinalized(t *testing.T) {
 	assert.Equal(t, 1, len(knownCodeDiff))
 	assert.Equal(t, int64(0), knownCodeDiff[crypto.Keccak256Hash([]byte{1, 2, 3})])
 	assert.Equal(t, 0, len(knownStorage))
+	assert.Equal(t, false, overriden)
 }
 
 func TestCopy(t *testing.T) {
@@ -829,8 +831,8 @@ func TestCopy(t *testing.T) {
 	acct.SetState(common.HexToHash("0x2"), common.HexToHash("0x22"))
 
 	acct2 := acct.Copy()
-	finalState, knownCode, knownCodeDiff, knownStorage := acct.GetFinalized()
-	finalState2, knownCode2, knownCodeDiff2, knownStorage2 := acct2.GetFinalized()
+	finalState, knownCode, knownCodeDiff, knownStorage, overriden := acct.GetFinalized()
+	finalState2, knownCode2, knownCodeDiff2, knownStorage2, overriden2 := acct2.GetFinalized()
 	assert.Equal(t, finalState.Nonce, finalState2.Nonce)
 	assert.Equal(t, finalState.Balance, finalState2.Balance)
 	assert.Equal(t, finalState.CodeHash, finalState2.CodeHash)
@@ -845,4 +847,5 @@ func TestCopy(t *testing.T) {
 	assert.Equal(t, common.HexToHash("0x22"), knownStorage[common.HexToHash("0x2")])
 	assert.Equal(t, common.HexToHash("0x12"), knownStorage2[common.HexToHash("0x1")])
 	assert.Equal(t, common.HexToHash("0x22"), knownStorage2[common.HexToHash("0x2")])
+	assert.Equal(t, overriden, overriden2)
 }

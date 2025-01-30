@@ -144,6 +144,11 @@ type MutableWorldState interface {
 	// SetCode sets the code to the given address.
 	SetCode(addr common.Address, code []byte)
 
+	// SetStorage replaces the entire storage for the specified account with given
+	// storage. This function should only be used for debugging and the mutations
+	// must be discarded afterwards.
+	SetStorage(addr common.Address, storage map[common.Hash]common.Hash)
+
 	// SetState sets the value associated with the specific key.
 	SetState(addr common.Address, key common.Hash, val common.Hash)
 

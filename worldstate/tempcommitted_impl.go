@@ -36,6 +36,7 @@ type tempCommittedState struct {
 	CommittedCodeCount map[common.Hash]int64
 	CodePreimage       map[common.Hash][]byte
 	CommittedStorage   map[string]map[common.Hash]common.Hash
+	Overriden          map[common.Address]bool
 
 	// Committed flag
 	committed bool
@@ -59,6 +60,7 @@ func newTempCommittedState(
 		CommittedCodeCount: make(map[common.Hash]int64),
 		CodePreimage:       make(map[common.Hash][]byte),
 		CommittedStorage:   make(map[string]map[common.Hash]common.Hash),
+		Overriden:          make(map[common.Address]bool),
 		committed:          false,
 	}
 }
@@ -89,7 +91,8 @@ func (s *tempCommittedState) GetMutableAccount(addr common.Address) (res mutable
 	for k, v := range knownStorage {
 		storageCopy[k] = v
 	}
-	res = newMutableAccountImpl(s.parent, addr, acct, codeCopy, storageCopy)
+	overriden := s.Overriden[addr]
+	res = newMutableAccountImplWithOverriden(s.parent, addr, acct, codeCopy, storageCopy, overriden)
 	return
 }
 
@@ -139,7 +142,7 @@ func (s *tempCommittedState) ApplyChanges(
 
 	// Apply finalized account changes one by one
 	for addr, acct := range dirtyAccounts {
-		finalState, knownCode, knownCodeDiff, knownStorage := acct.GetFinalized()
+		finalState, knownCode, knownCodeDiff, knownStorage, overriden := acct.GetFinalized()
 		s.CommittedAccounts[addr] = finalState
 		if len(knownCode) > 0 {
 			s.CodePreimage[finalState.CodeHash] = knownCode
@@ -155,6 +158,7 @@ func (s *tempCommittedState) ApplyChanges(
 			}
 			s.CommittedStorage[accountKey][key] = val
 		}
+		s.Overriden[addr] = overriden
 	}
 
 	s.Logs[txHash] = logs
@@ -263,6 +267,10 @@ func (s *tempCommittedState) Copy() *tempCommittedState {
 			committedStorage[k][sk] = sv
 		}
 	}
+	overriden := make(map[common.Address]bool)
+	for k, v := range s.Overriden {
+		overriden[k] = v
+	}
 	return &tempCommittedState{
 		sstore:             s.sstore,
 		archive:            s.archive,
@@ -274,6 +282,7 @@ func (s *tempCommittedState) Copy() *tempCommittedState {
 		CommittedCodeCount: committedCodeCount,
 		CodePreimage:       codePreimage,
 		CommittedStorage:   committedStorage,
+		Overriden:          overriden,
 		committed:          s.committed,
 	}
 }

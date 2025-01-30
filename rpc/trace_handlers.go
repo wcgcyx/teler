@@ -121,12 +121,7 @@ func (h *traceAPIHandler) Call(ctx context.Context, args TransactionArgs, blockN
 	if config != nil && config.TxIndex != nil {
 		_, _, state, release, err = stateAtTransaction(ctx, h.be, block, int(*config.TxIndex), reexec)
 	} else {
-		var parent *types.Header
-		parent, err = h.be.Blockchain().GetHeaderByHash(ctx, block.ParentHash())
-		if err != nil {
-			return nil, err
-		}
-		state, err = h.be.StateArchive().GetMutable(parent.Number.Uint64(), parent.Root)
+		state, err = h.be.StateArchive().GetMutable(block.NumberU64(), block.Root())
 		release = func() {}
 	}
 	if err != nil {

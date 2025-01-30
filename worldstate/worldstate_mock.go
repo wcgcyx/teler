@@ -1251,6 +1251,18 @@ func (mr *MockMutableWorldStateMockRecorder) SetState(addr, key, val any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetState", reflect.TypeOf((*MockMutableWorldState)(nil).SetState), addr, key, val)
 }
 
+// SetStorage mocks base method.
+func (m *MockMutableWorldState) SetStorage(addr common.Address, storage map[common.Hash]common.Hash) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetStorage", addr, storage)
+}
+
+// SetStorage indicates an expected call of SetStorage.
+func (mr *MockMutableWorldStateMockRecorder) SetStorage(addr, storage any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetStorage", reflect.TypeOf((*MockMutableWorldState)(nil).SetStorage), addr, storage)
+}
+
 // SetTransientState mocks base method.
 func (m *MockMutableWorldState) SetTransientState(addr common.Address, key, val common.Hash) {
 	m.ctrl.T.Helper()

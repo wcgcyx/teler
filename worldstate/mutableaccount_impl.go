@@ -48,6 +48,7 @@ type mutableAccountImpl struct {
 	knownCodeDiff map[common.Hash]int64
 
 	// storage
+	overriden    bool                        // whether storage overriden is enabled, only in tracing
 	knownStorage map[common.Hash]common.Hash // lazy-init
 }
 
@@ -69,6 +70,30 @@ func newMutableAccountImpl(
 		knownCode:     knownCode,
 		knownCodeDiff: make(map[common.Hash]int64),
 		knownStorage:  knownStorage,
+		overriden:     false,
+	}
+}
+
+func newMutableAccountImplWithOverriden(
+	parent LayeredWorldState,
+	addr common.Address,
+	acct itypes.AccountValue,
+	knownCode []byte,
+	knownStorage map[common.Hash]common.Hash,
+	overriden bool,
+) mutableAccount {
+	return &mutableAccountImpl{
+		parent:        parent,
+		addr:          addr,
+		nonce:         acct.Nonce,
+		balance:       uint256.NewInt(0).Set(acct.Balance),
+		codeHash:      acct.CodeHash,
+		dirtyStorage:  acct.DirtyStorage,
+		version:       acct.Version,
+		knownCode:     knownCode,
+		knownCodeDiff: make(map[common.Hash]int64),
+		knownStorage:  knownStorage,
+		overriden:     overriden,
 	}
 }
 
@@ -148,11 +173,16 @@ func (acct *mutableAccountImpl) GetState(key common.Hash) (res common.Hash) {
 	}
 	val, ok := acct.knownStorage[key]
 	if !ok {
+		val = common.Hash{}
 		if acct.interpretVersion() == beingDeleted {
 			// When getting state on an account being deleted, it needs to get the committed state at version-1.
-			val = acct.parent.GetStorageByVersion(acct.addr, acct.version-1, key, true)
+			if !acct.overriden {
+				val = acct.parent.GetStorageByVersion(acct.addr, acct.version-1, key, true)
+			}
 		} else {
-			val = acct.parent.GetStorageByVersion(acct.addr, acct.version, key, true)
+			if !acct.overriden {
+				val = acct.parent.GetStorageByVersion(acct.addr, acct.version, key, true)
+			}
 		}
 		acct.knownStorage[key] = val
 	}
@@ -287,6 +317,24 @@ func (acct *mutableAccountImpl) SetCode(code []byte) (revert func()) {
 	}
 }
 
+// OverrideStorage replaces the entire storage
+// This function should only be used for debugging and the mutations
+// must be discarded afterwards.
+func (acct *mutableAccountImpl) OverrideStorage(storage map[common.Hash]common.Hash) (revert func()) {
+	// log.Debugf("Account %v - OverrideStorage(%v) [Before %v]", acct.addr, storage, acct.knownStorage)
+	// defer func() {
+	// 	log.Debugf("Account %v - OverrideStorage(%v) returns void [After %v]", acct.addr, storage, storage)
+	// }()
+
+	original := acct.knownStorage
+	acct.overriden = true
+	acct.knownStorage = storage
+	return func() {
+		acct.overriden = false
+		acct.knownStorage = original
+	}
+}
+
 // SetState attempts to set the storage slot value of this account.
 func (acct *mutableAccountImpl) SetState(key common.Hash, val common.Hash) (revert func()) {
 	// log.Debugf("Account %v - SetState(%v,%v) [Before %v-%v-%v-%v-%v]", acct.addr, key, val, acct.nonce, acct.balance, acct.codeHash, acct.dirtyStorage, acct.version)
@@ -365,7 +413,9 @@ func (acct *mutableAccountImpl) GetFinalized() (
 	finalState itypes.AccountValue,
 	knownCode []byte,
 	knownCodeDiff map[common.Hash]int64,
-	knownStorage map[common.Hash]common.Hash) {
+	knownStorage map[common.Hash]common.Hash,
+	overriden bool) {
+	overriden = acct.overriden
 	if acct.interpretVersion() == beingDeleted {
 		if acct.codeHash != types.EmptyCodeHash {
 			// update known code diff
