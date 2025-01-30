@@ -983,3 +983,67 @@ func newStates(keys []common.Hash, vals []common.Hash) map[common.Hash]common.Ha
 	}
 	return m
 }
+
+func TestTraceBlockWithBasefee(t *testing.T) {
+	t.Parallel()
+	accounts := newAccounts(1)
+	target := common.HexToAddress("0x1111111111111111111111111111111111111111")
+	genesis := &core.Genesis{
+		Config: params.AllDevChainProtocolChanges,
+		Alloc: types.GenesisAlloc{
+			accounts[0].addr: {Balance: big.NewInt(1 * params.Ether)},
+			target: {Balance: big.NewInt(0), Nonce: 1, Code: []byte{
+				byte(vm.BASEFEE), byte(vm.STOP),
+			}},
+		},
+	}
+	genBlocks := 1
+	signer := types.HomesteadSigner{}
+	var txHash common.Hash
+	var baseFee = new(big.Int)
+	backend := newTestBackend(t, "t5", genBlocks, genesis, func(i int, b *core.BlockGen) {
+		tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
+			Nonce:    uint64(i),
+			To:       &target,
+			Value:    big.NewInt(0),
+			Gas:      5 * params.TxGas,
+			GasPrice: b.BaseFee(),
+			Data:     nil}),
+			signer, accounts[0].key)
+		b.AddTx(tx)
+		txHash = tx.Hash()
+		baseFee.Set(b.BaseFee())
+	})
+	defer backend.teardown()
+
+	api := traceAPIHandler{
+		be: backend.be,
+		opts: Opts{
+			RPCGasCap: backend.RPCGasCap(),
+		},
+	}
+
+	var testSuite = []struct {
+		blockNumber rpc.BlockNumber
+		config      *tracers.TraceConfig
+		want        string
+	}{
+		// Trace head block
+		{
+			blockNumber: rpc.BlockNumber(genBlocks),
+			want:        fmt.Sprintf(`[{"txHash":"%#x","result":{"gas":21002,"failed":false,"returnValue":"","structLogs":[{"pc":0,"op":"BASEFEE","gas":84000,"gasCost":2,"depth":1,"stack":[]},{"pc":1,"op":"STOP","gas":83998,"gasCost":0,"depth":1,"stack":["%#x"]}]}}]`, txHash, baseFee),
+		},
+	}
+	for i, tc := range testSuite {
+		result, err := api.BlockByNumber(context.Background(), tc.blockNumber, tc.config)
+		if err != nil {
+			t.Errorf("test %d, want no error, have %v", i, err)
+			continue
+		}
+		have, _ := json.Marshal(result)
+		want := tc.want
+		if string(have) != want {
+			t.Errorf("test %d, result mismatch\nhave: %v\nwant: %v\n", i, string(have), want)
+		}
+	}
+}
