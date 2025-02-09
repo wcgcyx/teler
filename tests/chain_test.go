@@ -1095,7 +1095,7 @@ func testCreateThenDelete(t *testing.T, config *params.ChainConfig) {
 	signer := types.HomesteadSigner{}
 	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 2, func(i int, b *core.BlockGen) {
 		fee := big.NewInt(1)
-		if b.BaseFee() != nil {
+		if config.IsLondon(b.Number()) {
 			fee = b.BaseFee()
 		}
 		b.SetCoinbase(common.Address{1})

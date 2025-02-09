@@ -110,7 +110,7 @@ func TestAddBlockOfSingleChain(t *testing.T) {
 	_, blocks, receipts := core.GenerateChainWithGenesis(genesis, engine, 64, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -168,7 +168,7 @@ func TestAddBlockOfForks(t *testing.T) {
 	db, blocks, receipts := core.GenerateChainWithGenesis(genesis, engine, 64, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -183,7 +183,7 @@ func TestAddBlockOfForks(t *testing.T) {
 	blocks2, receipts2 := core.GenerateChain(genesis.Config, blocks[31], engine, db, 32, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -249,7 +249,7 @@ func TestFinalizedAndSafe(t *testing.T) {
 	_, blocks, receipts := core.GenerateChainWithGenesis(genesis, engine, 64, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -335,7 +335,7 @@ func TestGetBlockData(t *testing.T) {
 	_, blocks, receipts := core.GenerateChainWithGenesis(genesis, engine, 64, func(i int, bg *core.BlockGen) {
 		for j := 0; j <= rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -470,7 +470,7 @@ func TestReorg(t *testing.T) {
 	db, blocks, receipts := core.GenerateChainWithGenesis(genesis, engine, 64, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -485,7 +485,7 @@ func TestReorg(t *testing.T) {
 	blocks2, receipts2 := core.GenerateChain(genesis.Config, blocks[31], engine, db, 32, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -573,7 +573,7 @@ func TestPruning(t *testing.T) {
 	db, blocks, receipts := core.GenerateChainWithGenesis(genesis, engine, 500, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
@@ -583,7 +583,7 @@ func TestPruning(t *testing.T) {
 	blocks2, receipts2 := core.GenerateChain(genesis.Config, blocks[31], engine, db, 32, func(i int, bg *core.BlockGen) {
 		for j := 0; j < rand.Intn(5); j++ {
 			// Simple transfer from test account 1 to test account 2
-			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(1), nil)
+			tx := types.NewTransaction(bg.TxNonce(testAcct1), testAcct2, big.NewInt(1), 21000, big.NewInt(0).Add(bg.BaseFee(), big.NewInt(1)), nil)
 			key, _ := crypto.HexToECDSA(testKey1)
 			tx, _ = types.SignTx(tx, types.MakeSigner(genesis.Config, big.NewInt(int64(i)), bg.Timestamp()), key)
 			bg.AddTx(tx)
