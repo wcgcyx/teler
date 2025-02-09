@@ -38,7 +38,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/core/blockchain_test.go
+// 		go-ethereum@v1.15.0/core/blockchain_test.go
 
 // Logger
 var log = logging.Logger("tests")
@@ -178,7 +178,7 @@ func testEIP155Transition(t *testing.T) {
 			Alloc: types.GenesisAlloc{address: {Balance: funds}, deleteAddr: {Balance: new(big.Int)}},
 		}
 	)
-	genDb, blocks, _ := GenerateChainWithGenesis(gspec, ethash.NewFaker(), 4, func(i int, block *BlockGen) {
+	genDb, blocks, _ := core.GenerateChainWithGenesis(gspec, ethash.NewFaker(), 4, func(i int, block *core.BlockGen) {
 		var (
 			tx      *types.Transaction
 			err     error
@@ -255,7 +255,7 @@ func testEIP155Transition(t *testing.T) {
 		EIP155Block:    big.NewInt(2),
 		HomesteadBlock: new(big.Int),
 	}
-	blocks, _ = GenerateChain(config, blocks[len(blocks)-1], ethash.NewFaker(), genDb, 4, func(i int, block *BlockGen) {
+	blocks, _ = core.GenerateChain(config, blocks[len(blocks)-1], ethash.NewFaker(), genDb, 4, func(i int, block *core.BlockGen) {
 		var (
 			tx      *types.Transaction
 			err     error
@@ -303,7 +303,7 @@ func testEIP161AccountRemoval(t *testing.T) {
 			Alloc: types.GenesisAlloc{address: {Balance: funds}},
 		}
 	)
-	_, blocks, _ := GenerateChainWithGenesis(gspec, ethash.NewFaker(), 3, func(i int, block *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, ethash.NewFaker(), 3, func(i int, block *core.BlockGen) {
 		var (
 			tx     *types.Transaction
 			err    error
@@ -412,15 +412,15 @@ func testDeleteCreateRevert(t *testing.T) {
 		}
 	)
 
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to AAAA
 		tx, _ := types.SignTx(types.NewTransaction(0, aa,
-			big.NewInt(0), 50000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 50000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		b.AddTx(tx)
 		// One transaction to BBBB
 		tx, _ = types.SignTx(types.NewTransaction(1, bb,
-			big.NewInt(0), 100000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 100000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		b.AddTx(tx)
 	})
 	// Import the canonical chain
@@ -521,15 +521,15 @@ func testDeleteRecreateSlots(t *testing.T) {
 			},
 		},
 	}
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to AA, to kill it
 		tx, _ := types.SignTx(types.NewTransaction(0, aa,
-			big.NewInt(0), 50000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 50000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		b.AddTx(tx)
 		// One transaction to BB, to recreate AA
 		tx, _ = types.SignTx(types.NewTransaction(1, bb,
-			big.NewInt(0), 100000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 100000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		b.AddTx(tx)
 	})
 	// Import the canonical chain
@@ -604,15 +604,15 @@ func testDeleteRecreateAccount(t *testing.T) {
 		},
 	}
 
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to AA, to kill it
 		tx, _ := types.SignTx(types.NewTransaction(0, aa,
-			big.NewInt(0), 50000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 50000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		b.AddTx(tx)
 		// One transaction to AA, to recreate it (but without storage
 		tx, _ = types.SignTx(types.NewTransaction(1, aa,
-			big.NewInt(1), 100000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(1), 100000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		b.AddTx(tx)
 	})
 	// Import the canonical chain
@@ -743,9 +743,9 @@ func testDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		values:   map[int]int{1: 1, 2: 2},
 	}
 	var expectations []*expectation
-	var newDestruct = func(e *expectation, b *BlockGen) *types.Transaction {
+	var newDestruct = func(e *expectation, b *core.BlockGen) *types.Transaction {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, aa,
-			big.NewInt(0), 50000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 50000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		nonce++
 		if e.exist {
 			e.exist = false
@@ -754,9 +754,9 @@ func testDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		//t.Logf("block %d; adding destruct\n", e.blocknum)
 		return tx
 	}
-	var newResurrect = func(e *expectation, b *BlockGen) *types.Transaction {
+	var newResurrect = func(e *expectation, b *core.BlockGen) *types.Transaction {
 		tx, _ := types.SignTx(types.NewTransaction(nonce, bb,
-			big.NewInt(0), 100000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 100000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		nonce++
 		if !e.exist {
 			e.exist = true
@@ -766,7 +766,7 @@ func testDeleteRecreateSlotsAcrossManyBlocks(t *testing.T) {
 		return tx
 	}
 
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 150, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 150, func(i int, b *core.BlockGen) {
 		var exp = new(expectation)
 		exp.blocknum = i + 1
 		exp.values = make(map[int]int)
@@ -919,11 +919,11 @@ func testInitThenFailCreateContract(t *testing.T) {
 		},
 	}
 	nonce := uint64(0)
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 4, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 4, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{1})
 		// One transaction to BB
 		tx, _ := types.SignTx(types.NewTransaction(nonce, bb,
-			big.NewInt(0), 100000, b.header.BaseFee, nil), types.HomesteadSigner{}, key)
+			big.NewInt(0), 100000, b.BaseFee(), nil), types.HomesteadSigner{}, key)
 		b.AddTx(tx)
 		nonce++
 	})
@@ -999,7 +999,7 @@ func testEIP2718Transition(t *testing.T) {
 		}
 	)
 	// Generate blocks
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 1, func(i int, b *core.BlockGen) {
 		b.SetCoinbase(common.Address{1})
 
 		// One transaction to 0xAAAA
@@ -1009,7 +1009,7 @@ func testEIP2718Transition(t *testing.T) {
 			Nonce:    0,
 			To:       &aa,
 			Gas:      30000,
-			GasPrice: b.header.BaseFee,
+			GasPrice: b.BaseFee(),
 			AccessList: types.AccessList{{
 				Address:     aa,
 				StorageKeys: []common.Hash{{0}},
@@ -1093,10 +1093,10 @@ func testCreateThenDelete(t *testing.T, config *params.ChainConfig) {
 	}
 	nonce := uint64(0)
 	signer := types.HomesteadSigner{}
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 2, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 2, func(i int, b *core.BlockGen) {
 		fee := big.NewInt(1)
-		if b.header.BaseFee != nil {
-			fee = b.header.BaseFee
+		if b.BaseFee() != nil {
+			fee = b.BaseFee()
 		}
 		b.SetCoinbase(common.Address{1})
 		tx, _ := types.SignNewTx(key, signer, &types.LegacyTx{
@@ -1176,10 +1176,10 @@ func TestDeleteThenCreate(t *testing.T) {
 	}
 	nonce := uint64(0)
 	signer := types.HomesteadSigner{}
-	_, blocks, _ := GenerateChainWithGenesis(gspec, engine, 2, func(i int, b *BlockGen) {
+	_, blocks, _ := core.GenerateChainWithGenesis(gspec, engine, 2, func(i int, b *core.BlockGen) {
 		fee := big.NewInt(1)
-		if b.header.BaseFee != nil {
-			fee = b.header.BaseFee
+		if b.BaseFee() != nil {
+			fee = b.BaseFee()
 		}
 		b.SetCoinbase(common.Address{1})
 
@@ -1239,3 +1239,5 @@ func TestDeleteThenCreate(t *testing.T) {
 		}
 	}
 }
+
+// TODO. Add more tests from upstream.

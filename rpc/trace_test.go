@@ -47,7 +47,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/eth/tracers/api_test.go
+// 		go-ethereum@v1.15.0/eth/tracers/api_test.go
 
 const (
 	testDS = "./test-ds"
@@ -213,12 +213,11 @@ func (b *testBackend) StateAtTransaction(ctx context.Context, block *types.Block
 	signer := types.MakeSigner(b.be.ChainConfig(), block.Number(), block.Time())
 	for idx, tx := range block.Transactions() {
 		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
-		txContext := core.NewEVMTxContext(msg)
-		context := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, b.be.Blockchain(), b.be.Processor().Engine), nil)
+		context := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, b.be.Blockchain(), b.be.Processor().Engine, b.be.ChainConfig()), nil)
 		if idx == txIndex {
 			return tx, context, statedb, release, nil
 		}
-		vmenv := vm.NewEVM(context, txContext, statedb, b.ChainConfig(), vm.Config{})
+		vmenv := vm.NewEVM(context, statedb, b.ChainConfig(), vm.Config{})
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)
 		}
@@ -514,7 +513,7 @@ func TestTraceTransaction(t *testing.T) {
 		Gas:         params.TxGas,
 		Failed:      false,
 		ReturnValue: "",
-		StructLogs:  []logger.StructLogRes{},
+		StructLogs:  []json.RawMessage{},
 	}) {
 		t.Error("Transaction tracing result is different")
 	}
@@ -1001,7 +1000,7 @@ func TestTraceBlockWithBasefee(t *testing.T) {
 	signer := types.HomesteadSigner{}
 	var txHash common.Hash
 	var baseFee = new(big.Int)
-	backend := newTestBackend(t, beacon.NewFaker(), "t5", genBlocks, genesis, func(i int, b *core.BlockGen) {
+	backend := newTestBackend(t, beacon.New(ethash.NewFaker()), "t5", genBlocks, genesis, func(i int, b *core.BlockGen) {
 		tx, _ := types.SignTx(types.NewTx(&types.LegacyTx{
 			Nonce:    uint64(i),
 			To:       &target,

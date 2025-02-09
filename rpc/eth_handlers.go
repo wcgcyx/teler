@@ -13,10 +13,11 @@ package rpc
 import (
 	"context"
 	"fmt"
+	"math"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
+	gmath "github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/consensus/misc/eip4844"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/filters"
@@ -27,7 +28,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/internal/ethapi/api.go
+// 		go-ethereum@v1.15.0/internal/ethapi/api.go
 
 // ethAPIHandler is used to handle eth API.
 type ethAPIHandler struct {
@@ -43,7 +44,7 @@ func (h *ethAPIHandler) BlobBaseFee(ctx context.Context) (*hexutil.Big, error) {
 		return nil, err
 	}
 	if excess := blk.ExcessBlobGas(); excess != nil {
-		return (*hexutil.Big)(eip4844.CalcBlobFee(*excess)), nil
+		return (*hexutil.Big)(eip4844.CalcBlobFee(h.be.ChainConfig(), blk.Header())), nil
 	}
 	return nil, nil
 }
@@ -304,7 +305,7 @@ func (h *ethAPIHandler) GetUncleCountByBlockHash(ctx context.Context, blockHash 
 	return &n, nil
 }
 
-func (h *ethAPIHandler) FeeHistory(ctx context.Context, blockCount math.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
+func (h *ethAPIHandler) FeeHistory(ctx context.Context, blockCount gmath.HexOrDecimal64, lastBlock rpc.BlockNumber, rewardPercentiles []float64) (*feeHistoryResult, error) {
 	oldest, reward, baseFee, gasUsed, blobBaseFee, blobGasUsed, err := h.oracle.FeeHistory(ctx, uint64(blockCount), lastBlock, rewardPercentiles)
 	if err != nil {
 		return nil, err

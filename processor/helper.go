@@ -16,7 +16,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
-	"github.com/ethereum/go-ethereum/consensus/ethash"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -28,25 +27,20 @@ import (
 	"github.com/wcgcyx/teler/worldstate"
 )
 
-var (
-	beaconDifficulty = common.Big0 // The default block difficulty in the beacon consensus
-	// Some weird constants to avoid constant memory allocs for them.
-	u256_8  = uint256.NewInt(8)
-	u256_32 = uint256.NewInt(32)
-)
-
 type chainContext struct {
 	ctx    context.Context
 	chain  blockchain.Blockchain
 	engine consensus.Engine
+	config *params.ChainConfig
 }
 
 // NewChainContext creates a new chain context
-func NewChainContext(ctx context.Context, chain blockchain.Blockchain, engine consensus.Engine) core.ChainContext {
+func NewChainContext(ctx context.Context, chain blockchain.Blockchain, engine consensus.Engine, config *params.ChainConfig) core.ChainContext {
 	return &chainContext{
 		ctx:    ctx,
 		chain:  chain,
 		engine: engine,
+		config: config,
 	}
 }
 
@@ -68,6 +62,11 @@ func (c *chainContext) GetHeader(hash common.Hash, height uint64) *types.Header 
 	return header
 }
 
+// Config returns the chain's configuration.
+func (c *chainContext) Config() *params.ChainConfig {
+	return c.config
+}
+
 // applyDAOHardFork modifies the state database according to the DAO hard-fork
 // rules, transferring all balances of a set of DAO accounts to a single refund
 // contract.
@@ -84,54 +83,36 @@ func applyDAOHardFork(worldState worldstate.WorldState) {
 	}
 }
 
-// ProcessBeaconBlockRoot applies the EIP-4788 system call to the beacon block root
-// contract. This method is exported to be used in tests.
-func ProcessBeaconBlockRoot(beaconRoot common.Hash, vmenv *vm.EVM, worldState worldstate.WorldState) {
-	// If EIP-4788 is enabled, we need to invoke the beaconroot storage contract with
-	// the new root
-	msg := &core.Message{
-		From:      params.SystemAddress,
-		GasLimit:  30_000_000,
-		GasPrice:  common.Big0,
-		GasFeeCap: common.Big0,
-		GasTipCap: common.Big0,
-		To:        &params.BeaconRootsAddress,
-		Data:      beaconRoot[:],
-	}
-	vmenv.Reset(core.NewEVMTxContext(msg), worldState)
-	worldState.AddAddressToAccessList(params.BeaconRootsAddress)
-	_, _, _ = vmenv.Call(vm.AccountRef(msg.From), *msg.To, msg.Data, 30_000_000, common.U2560)
-	worldState.Finalise(true)
-}
-
 // ApplyTransaction applies a transaction to state.
-func ApplyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.GasPool, worldState worldstate.WorldState, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (receipt *types.Receipt, err error) {
-	if evm.Config.Tracer != nil && evm.Config.Tracer.OnTxStart != nil {
-		evm.Config.Tracer.OnTxStart(evm.GetVMContext(), tx, msg.From)
-		if evm.Config.Tracer.OnTxEnd != nil {
-			defer func() {
-				evm.Config.Tracer.OnTxEnd(receipt, err)
-			}()
+func ApplyTransaction(msg *core.Message, gp *core.GasPool, worldState worldstate.WorldState, blockNumber *big.Int, blockHash common.Hash, tx *types.Transaction, usedGas *uint64, evm *vm.EVM) (receipt *types.Receipt, err error) {
+	if hooks := evm.Config.Tracer; hooks != nil {
+		if hooks.OnTxStart != nil {
+			hooks.OnTxStart(evm.GetVMContext(), tx, msg.From)
+		}
+		if hooks.OnTxEnd != nil {
+			defer func() { hooks.OnTxEnd(receipt, err) }()
 		}
 	}
-	// Create a new context to be used in the EVM environment.
-	txContext := core.NewEVMTxContext(msg)
-	evm.Reset(txContext, worldState)
-
 	// Apply the transaction to the current state (included in the env).
 	result, err := core.ApplyMessage(evm, msg, gp)
 	if err != nil {
 		return nil, err
 	}
-
 	// Update the state with pending changes.
 	var root []byte
-	if config.IsByzantium(blockNumber) {
-		worldState.Finalise(true)
+	if evm.ChainConfig().IsByzantium(blockNumber) {
+		evm.StateDB.Finalise(true)
 	} else {
-		root = worldState.IntermediateRoot(config.IsEIP158(blockNumber)).Bytes()
+		root = worldState.IntermediateRoot(evm.ChainConfig().IsEIP158(blockNumber)).Bytes()
 	}
 	*usedGas += result.UsedGas
+
+	// Merge the tx-local access event into the "block-local" one, in order to collect
+	// all values, so that the witness can be built.
+	// TODO: Handle verkle trie
+	// if worldState.GetTrie().IsVerkle() {
+	// 	statedb.AccessEvents().Merge(evm.AccessEvents)
+	// }
 
 	// Create a new receipt for the transaction, storing the intermediate root and gas used
 	// by the tx.
@@ -161,60 +142,4 @@ func ApplyTransaction(msg *core.Message, config *params.ChainConfig, gp *core.Ga
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(worldState.TxIndex())
 	return
-}
-
-func consensusEngineFinalize(config *params.ChainConfig, header *types.Header, worldState worldstate.WorldState, uncles []*types.Header, withdrawals []*types.Withdrawal) {
-	if !isPoSHeader(header) {
-		// Accumulate any block and uncle rewards
-		accumulateRewards(config, worldState, header, uncles)
-	} else {
-		// Withdrawals processing.
-		for _, w := range withdrawals {
-			// Convert amount from gwei to wei.
-			amount := new(uint256.Int).SetUint64(w.Amount)
-			amount = amount.Mul(amount, uint256.NewInt(params.GWei))
-			worldState.AddBalance(w.Address, amount, tracing.BalanceIncreaseWithdrawal)
-		}
-		// No block reward which is issued by consensus layer instead.
-	}
-}
-
-// isPoSHeader reports the header belongs to the PoS-stage with some special fields.
-// This function is not suitable for a part of APIs like Prepare or CalcDifficulty
-// because the header difficulty is not set yet.
-func isPoSHeader(header *types.Header) bool {
-	if header.Difficulty == nil {
-		panic("IsPoSHeader called with invalid difficulty")
-	}
-	return header.Difficulty.Cmp(beaconDifficulty) == 0
-}
-
-// AccumulateRewards credits the coinbase of the given block with the mining
-// reward. The total reward consists of the static block reward and rewards for
-// included uncles. The coinbase of each uncle block is also rewarded.
-func accumulateRewards(config *params.ChainConfig, state worldstate.WorldState, header *types.Header, uncles []*types.Header) {
-	// Select the correct block reward based on chain progression
-	blockReward := ethash.FrontierBlockReward
-	if config.IsByzantium(header.Number) {
-		blockReward = ethash.ByzantiumBlockReward
-	}
-	if config.IsConstantinople(header.Number) {
-		blockReward = ethash.ConstantinopleBlockReward
-	}
-	// Accumulate the rewards for the miner and any included uncles
-	reward := new(uint256.Int).Set(blockReward)
-	r := new(uint256.Int)
-	hNum, _ := uint256.FromBig(header.Number)
-	for _, uncle := range uncles {
-		uNum, _ := uint256.FromBig(uncle.Number)
-		r.AddUint64(uNum, 8)
-		r.Sub(r, hNum)
-		r.Mul(r, blockReward)
-		r.Div(r, u256_8)
-		state.AddBalance(uncle.Coinbase, r, tracing.BalanceIncreaseRewardMineUncle)
-
-		r.Div(blockReward, u256_32)
-		reward.Add(reward, r)
-	}
-	state.AddBalance(header.Coinbase, reward, tracing.BalanceIncreaseRewardMineBlock)
 }

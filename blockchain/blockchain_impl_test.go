@@ -89,7 +89,7 @@ func TestAddBlockOfSingleChain(t *testing.T) {
 
 	ctx := context.Background()
 
-	genesis := core.DefaultGoerliGenesisBlock()
+	genesis := core.DefaultHoleskyGenesisBlock()
 	genesis.Alloc[testAcct1] = types.Account{
 		Code:    []byte{},
 		Storage: make(map[common.Hash]common.Hash),
@@ -147,7 +147,7 @@ func TestAddBlockOfForks(t *testing.T) {
 
 	ctx := context.Background()
 
-	genesis := core.DefaultGoerliGenesisBlock()
+	genesis := core.DefaultHoleskyGenesisBlock()
 	genesis.Alloc[testAcct1] = types.Account{
 		Code:    []byte{},
 		Storage: make(map[common.Hash]common.Hash),
@@ -228,7 +228,7 @@ func TestFinalizedAndSafe(t *testing.T) {
 
 	ctx := context.Background()
 
-	genesis := core.DefaultGoerliGenesisBlock()
+	genesis := core.DefaultHoleskyGenesisBlock()
 	genesis.Alloc[testAcct1] = types.Account{
 		Code:    []byte{},
 		Storage: make(map[common.Hash]common.Hash),
@@ -314,7 +314,7 @@ func TestGetBlockData(t *testing.T) {
 
 	ctx := context.Background()
 
-	genesis := core.DefaultGoerliGenesisBlock()
+	genesis := core.DefaultHoleskyGenesisBlock()
 	genesis.Alloc[testAcct1] = types.Account{
 		Code:    []byte{},
 		Storage: make(map[common.Hash]common.Hash),
@@ -449,7 +449,7 @@ func TestReorg(t *testing.T) {
 
 	ctx := context.Background()
 
-	genesis := core.DefaultGoerliGenesisBlock()
+	genesis := core.DefaultHoleskyGenesisBlock()
 	genesis.Alloc[testAcct1] = types.Account{
 		Code:    []byte{},
 		Storage: make(map[common.Hash]common.Hash),
@@ -552,7 +552,7 @@ func TestPruning(t *testing.T) {
 
 	ctx := context.Background()
 
-	genesis := core.DefaultGoerliGenesisBlock()
+	genesis := core.DefaultHoleskyGenesisBlock()
 	genesis.Alloc[testAcct1] = types.Account{
 		Code:    []byte{},
 		Storage: make(map[common.Hash]common.Hash),

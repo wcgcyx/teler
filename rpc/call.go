@@ -28,7 +28,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/internal/ethapi/api.go
+// 		go-ethereum@v1.15.0/internal/ethapi/api.go
 
 func DoCall(ctx context.Context, be backend.Backend, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, blockOverrides *BlockOverrides, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
@@ -58,15 +58,15 @@ func doCall(ctx context.Context, be backend.Backend, args TransactionArgs, state
 	defer cancel()
 
 	// Get a new instance of the EVM.
-	blockCtx := core.NewEVMBlockContext(header, processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine), nil)
+	blockCtx := core.NewEVMBlockContext(header, processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine, be.ChainConfig()), nil)
 	if blockOverrides != nil {
 		blockOverrides.Apply(&blockCtx)
 	}
 	if err := args.CallDefaults(globalGasCap, blockCtx.BaseFee, be.ChainConfig().ChainID); err != nil {
 		return nil, err
 	}
-	msg := args.ToMessage(blockCtx.BaseFee)
-	evm := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), state, be.ChainConfig(), vm.Config{NoBaseFee: true})
+	msg := args.ToMessage(blockCtx.BaseFee, true, true)
+	evm := vm.NewEVM(blockCtx, state, be.ChainConfig(), vm.Config{NoBaseFee: true})
 
 	// Wait for the context to be done and cancel the evm. Even if the
 	// EVM has finished, cancelling may be done (repeatedly)
