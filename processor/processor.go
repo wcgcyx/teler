@@ -15,6 +15,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/consensus"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -31,7 +32,7 @@ var log = logging.Logger("processor")
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/core/state_processor.go
+// 		go-ethereum@v1.15.0/core/state_processor.go
 // Adapted code have been commented below.
 // When merge from upstream, perform check from Process() function below.
 
@@ -67,6 +68,51 @@ func NewBlockProcessorWithEngine(config *params.ChainConfig, chain blockchain.Bl
 	}
 }
 
+// Config retrieves the blockchain's chain configuration.
+func (p *BlockProcessor) Config() *params.ChainConfig {
+	return p.config
+}
+
+// CurrentHeader retrieves the current header from the local chain.
+func (p *BlockProcessor) CurrentHeader() *types.Header {
+	blk, err := p.chain.GetHead(context.Background())
+	if err != nil {
+		log.Errorf("Fail to get current header in block processor: %v", err.Error())
+		return &types.Header{}
+	}
+	return blk.Header()
+}
+
+// GetHeader retrieves a block header from the database by hash and number.
+func (p *BlockProcessor) GetHeader(hash common.Hash, number uint64) *types.Header {
+	res := p.GetHeaderByHash(hash)
+	if res.Number.Uint64() != number {
+		log.Errorf("Header number mismtach for %v, expect %v, got %v", hash, number, res.Number.Uint64())
+		return &types.Header{}
+	}
+	return res
+}
+
+// GetHeaderByNumber retrieves a block header from the database by number.
+func (p *BlockProcessor) GetHeaderByNumber(number uint64) *types.Header {
+	res, err := p.chain.GetHeaderByNumber(context.Background(), number)
+	if err != nil {
+		log.Errorf("Fail to get current header by number in block processor: %v", err.Error())
+		return &types.Header{}
+	}
+	return res
+}
+
+// GetHeaderByHash retrieves a block header from the database by its hash.
+func (p *BlockProcessor) GetHeaderByHash(hash common.Hash) *types.Header {
+	res, err := p.chain.GetHeaderByHash(context.Background(), hash)
+	if err != nil {
+		log.Errorf("Fail to get current header by hash in block processor: %v", err.Error())
+		return &types.Header{}
+	}
+	return res
+}
+
 // Process processes the state changes according to the Ethereum rules by running
 // the transaction messages using the statedb and applying any rewards to both
 // the processor (coinbase) and any included uncles.
@@ -95,14 +141,18 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 		signer  = types.MakeSigner(p.config, header.Number, header.Time)
 	)
 	// START //
-	context = core.NewEVMBlockContext(header, NewChainContext(ctx, p.chain, p.Engine), nil)
-	vmenv := vm.NewEVM(context, vm.TxContext{}, worldState, p.config, cfg)
+	context = core.NewEVMBlockContext(header, NewChainContext(ctx, p.chain, p.Engine, p.config), nil)
+	evm := vm.NewEVM(context, worldState, p.config, cfg)
 	// END //
 	if beaconRoot := block.BeaconRoot(); beaconRoot != nil {
 		// START //
-		ProcessBeaconBlockRoot(*beaconRoot, vmenv, worldState)
+		core.ProcessBeaconBlockRoot(*beaconRoot, evm)
 		// END //
 	}
+	if p.config.IsPrague(block.Number(), block.Time()) || p.config.IsVerkle(block.Number(), block.Time()) {
+		core.ProcessParentBlockHash(block.ParentHash(), evm)
+	}
+
 	// Iterate over and process the individual transactions
 	var lastGas uint64 = 0
 	for i, tx := range block.Transactions() {
@@ -112,7 +162,7 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 		}
 		// START //
 		worldState.SetTxContext(tx.Hash(), i)
-		receipt, err := ApplyTransaction(msg, p.config, gp, worldState, blockNumber, blockHash, tx, usedGas, vmenv)
+		receipt, err := ApplyTransaction(msg, gp, worldState, blockNumber, blockHash, tx, usedGas, evm)
 		if err != nil {
 			return nil, nil, 0, fmt.Errorf("could not apply tx %d [%v]: %w", i, tx.Hash().Hex(), err)
 		}
@@ -122,6 +172,20 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 		receipts = append(receipts, receipt)
 		allLogs = append(allLogs, receipt.Logs...)
 	}
+	// Read requests if Prague is enabled.
+	var requests [][]byte
+	if p.config.IsPrague(block.Number(), block.Time()) {
+		requests = [][]byte{}
+		// EIP-6110
+		if err := core.ParseDepositLogs(&requests, allLogs, p.config); err != nil {
+			return nil, nil, 0, err
+		}
+		// EIP-7002
+		core.ProcessWithdrawalQueue(&requests, evm)
+		// EIP-7251
+		core.ProcessConsolidationQueue(&requests, evm)
+	}
+
 	// Fail if Shanghai not enabled and len(withdrawals) is non-zero.
 	withdrawals := block.Withdrawals()
 	if len(withdrawals) > 0 && !p.config.IsShanghai(block.Number(), block.Time()) {
@@ -129,7 +193,7 @@ func (p *BlockProcessor) Process(ctx context.Context, block *types.Block, worldS
 	}
 	// Finalize the block, applying any consensus engine specific extras (e.g. block rewards)
 	// START
-	consensusEngineFinalize(p.config, header, worldState, block.Uncles(), withdrawals)
+	p.Engine.Finalize(p, header, worldState, block.Body())
 	// END
 
 	return receipts, allLogs, *usedGas, nil

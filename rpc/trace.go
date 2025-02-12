@@ -32,7 +32,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/eth/tracers/api.go
+// 		go-ethereum@v1.15.0/eth/tracers/api.go
 
 const (
 	// defaultTraceTimeout is the amount of time a single transaction can execute
@@ -115,14 +115,13 @@ func traceBlock(ctx context.Context, be backend.Backend, block *types.Block, con
 	var (
 		txs       = block.Transactions()
 		blockHash = block.Hash()
-		blockCtx  = core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine), nil)
+		blockCtx  = core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine, be.ChainConfig()), nil)
 		signer    = types.MakeSigner(be.ChainConfig(), block.Number(), block.Time())
 		results   = make([]*txTraceResult, len(txs))
 	)
 	if beaconRoot := block.BeaconRoot(); beaconRoot != nil {
-		// vmenv := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), state, be.ChainConfig(), vm.Config{})
-		vmenv := vm.NewEVM(blockCtx, vm.TxContext{}, state, be.ChainConfig(), vm.Config{})
-		processor.ProcessBeaconBlockRoot(*beaconRoot, vmenv, state)
+		vmenv := vm.NewEVM(blockCtx, state, be.ChainConfig(), vm.Config{})
+		core.ProcessBeaconBlockRoot(*beaconRoot, vmenv)
 	}
 	for i, tx := range txs {
 		// Generate the next state snapshot fast without tracing
@@ -164,13 +163,13 @@ func traceTx(ctx context.Context, be backend.Backend, tx *types.Transaction, mes
 			Stop:      logger.Stop,
 		}
 	} else {
-		tracer, err = tracers.DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig)
+		tracer, err = tracers.DefaultDirectory.New(*config.Tracer, txctx, config.TracerConfig, be.ChainConfig())
 		if err != nil {
 			return nil, err
 		}
 	}
 	// The actual TxContext will be created as part of ApplyTransactionWithEVM.
-	vmenv := vm.NewEVM(vmctx, vm.TxContext{GasPrice: message.GasPrice, BlobFeeCap: message.BlobGasFeeCap}, state, be.ChainConfig(), vm.Config{Tracer: tracer.Hooks, NoBaseFee: true})
+	vmenv := vm.NewEVM(vmctx, state, be.ChainConfig(), vm.Config{Tracer: tracer.Hooks, NoBaseFee: true})
 	state.SetLogger(tracer.Hooks)
 
 	// Define a meaningful timeout of a single transaction trace
@@ -192,7 +191,7 @@ func traceTx(ctx context.Context, be backend.Backend, tx *types.Transaction, mes
 
 	// Call Prepare to clear out the statedb access list
 	state.SetTxContext(txctx.TxHash, txctx.TxIndex)
-	_, err = processor.ApplyTransaction(message, be.ChainConfig(), new(core.GasPool).AddGas(message.GasLimit), state, vmctx.BlockNumber, txctx.BlockHash, tx, &usedGas, vmenv)
+	_, err = processor.ApplyTransaction(message, new(core.GasPool).AddGas(message.GasLimit), state, vmctx.BlockNumber, txctx.BlockHash, tx, &usedGas, vmenv)
 	if err != nil {
 		return nil, fmt.Errorf("tracing failed: %w", err)
 	}
@@ -233,7 +232,7 @@ func traceBlockParallel(ctx context.Context, be backend.Backend, block *types.Bl
 				// as the GetHash function of BlockContext is not safe for
 				// concurrent use.
 				// See: https://github.com/ethereum/go-ethereum/issues/29114
-				blockCtx := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine), nil)
+				blockCtx := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine, be.ChainConfig()), nil)
 				res, err := traceTx(ctx, be, txs[task.index], msg, txctx, blockCtx, state, config)
 				if err != nil {
 					results[task.index] = &txTraceResult{TxHash: txs[task.index].Hash(), Error: err.Error()}
@@ -246,7 +245,7 @@ func traceBlockParallel(ctx context.Context, be backend.Backend, block *types.Bl
 
 	// Feed the transactions into the tracers and return
 	var failed error
-	blockCtx := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine), nil)
+	blockCtx := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine, be.ChainConfig()), nil)
 txloop:
 	for i, tx := range txs {
 		// Send the trace task over for execution
@@ -261,7 +260,7 @@ txloop:
 		// Generate the next state snapshot fast without tracing
 		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
 		state.SetTxContext(tx.Hash(), i)
-		vmenv := vm.NewEVM(blockCtx, core.NewEVMTxContext(msg), state, be.ChainConfig(), vm.Config{})
+		vmenv := vm.NewEVM(blockCtx, state, be.ChainConfig(), vm.Config{})
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(msg.GasLimit)); err != nil {
 			failed = err
 			break txloop
@@ -300,9 +299,9 @@ func stateAtTransaction(ctx context.Context, be backend.Backend, block *types.Bl
 	}
 	// Insert parent beacon block root in the state as per EIP-4788.
 	if beaconRoot := block.BeaconRoot(); beaconRoot != nil {
-		context := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine), nil)
-		vmenv := vm.NewEVM(context, vm.TxContext{}, state, be.ChainConfig(), vm.Config{})
-		processor.ProcessBeaconBlockRoot(*beaconRoot, vmenv, state)
+		context := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine, be.ChainConfig()), nil)
+		vmenv := vm.NewEVM(context, state, be.ChainConfig(), vm.Config{})
+		core.ProcessBeaconBlockRoot(*beaconRoot, vmenv)
 	}
 	if txIndex == 0 && len(block.Transactions()) == 0 {
 		return nil, vm.BlockContext{}, state, func() {}, nil
@@ -312,13 +311,12 @@ func stateAtTransaction(ctx context.Context, be backend.Backend, block *types.Bl
 	for idx, tx := range block.Transactions() {
 		// Assemble the transaction call message and return if the requested offset
 		msg, _ := core.TransactionToMessage(tx, signer, block.BaseFee())
-		txContext := core.NewEVMTxContext(msg)
-		context := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine), nil)
+		context := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine, be.ChainConfig()), nil)
 		if idx == txIndex {
 			return tx, context, state, func() {}, nil
 		}
 		// Not yet the searched for transaction, execute on top of the current state
-		vmenv := vm.NewEVM(context, txContext, state, be.ChainConfig(), vm.Config{})
+		vmenv := vm.NewEVM(context, state, be.ChainConfig(), vm.Config{})
 		state.SetTxContext(tx.Hash(), idx)
 		if _, err := core.ApplyMessage(vmenv, msg, new(core.GasPool).AddGas(tx.Gas())); err != nil {
 			return nil, vm.BlockContext{}, nil, nil, fmt.Errorf("transaction %#x failed: %v", tx.Hash(), err)

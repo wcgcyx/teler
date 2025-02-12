@@ -491,7 +491,7 @@ func TestAccountSetNonce(t *testing.T) {
 
 	mutable.CreateAccount(common.HexToAddress("0x11"))
 	assert.Equal(t, uint64(0), mutable.GetNonce(common.HexToAddress("0x11")))
-	mutable.SetNonce(common.HexToAddress("0x11"), 1)
+	mutable.SetNonce(common.HexToAddress("0x11"), 1, tracing.NonceChangeUnspecified)
 	assert.Equal(t, uint64(1), mutable.GetNonce(common.HexToAddress("0x11")))
 }
 
@@ -684,11 +684,11 @@ func TestSelfDestruct6780(t *testing.T) {
 		}).AnyTimes()
 
 	assert.False(t, mutable.HasSelfDestructed(common.HexToAddress("0x11")))
-	mutable.Selfdestruct6780(common.HexToAddress("0x11"))
+	mutable.SelfDestruct6780(common.HexToAddress("0x11"))
 	assert.False(t, mutable.HasSelfDestructed(common.HexToAddress("0x11")))
 
 	mutable.CreateContract(common.HexToAddress("0x11"))
-	mutable.Selfdestruct6780(common.HexToAddress("0x11"))
+	mutable.SelfDestruct6780(common.HexToAddress("0x11"))
 	assert.True(t, mutable.HasSelfDestructed(common.HexToAddress("0x11")))
 }
 

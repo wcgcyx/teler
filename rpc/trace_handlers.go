@@ -26,7 +26,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/eth/tracers/api.go
+// 		go-ethereum@v1.15.0/eth/tracers/api.go
 
 // traceAPIHandler is used to handle trace API.
 type traceAPIHandler struct {
@@ -129,7 +129,7 @@ func (h *traceAPIHandler) Call(ctx context.Context, args TransactionArgs, blockN
 	}
 	defer release()
 
-	vmctx := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, h.be.Blockchain(), h.be.Processor().Engine), nil)
+	vmctx := core.NewEVMBlockContext(block.Header(), processor.NewChainContext(ctx, h.be.Blockchain(), h.be.Processor().Engine, h.be.ChainConfig()), nil)
 	// Apply the customization rules if required.
 	if config != nil {
 		if err := config.StateOverrides.Apply(state); err != nil {
@@ -142,7 +142,7 @@ func (h *traceAPIHandler) Call(ctx context.Context, args TransactionArgs, blockN
 		return nil, err
 	}
 	var (
-		msg         = args.ToMessage(vmctx.BaseFee)
+		msg         = args.ToMessage(vmctx.BaseFee, true, true)
 		tx          = args.ToTransaction()
 		traceConfig *tracers.TraceConfig
 	)

@@ -15,13 +15,13 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -36,9 +36,9 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/internal/ethapi/api.go
-//		go-ethereum@v1.14.8/internal/ethapi/transaction_args.go
-// 		go-ethereum@v1.14.8/internal/ethapi/errors.go
+// 		go-ethereum@v1.15.0/internal/ethapi/api.go
+//		go-ethereum@v1.15.0/internal/ethapi/transaction_args.go
+// 		go-ethereum@v1.15.0/internal/ethapi/errors.go
 
 // TransactionArgs represents the arguments to construct a new transaction
 // or a message call.
@@ -52,6 +52,9 @@ type TransactionArgs struct {
 	Value                *hexutil.Big    `json:"value"`
 	Nonce                *hexutil.Uint64 `json:"nonce"`
 
+	// We accept "data" and "input" for backwards-compatibility reasons.
+	// "input" is the newer name and should be preferred by clients.
+	// Issue detail: https://github.com/ethereum/go-ethereum/issues/15628
 	Data  *hexutil.Bytes `json:"data"`
 	Input *hexutil.Bytes `json:"input"`
 
@@ -68,8 +71,11 @@ type TransactionArgs struct {
 	Commitments []kzg4844.Commitment `json:"commitments"`
 	Proofs      []kzg4844.Proof      `json:"proofs"`
 
+	// For SetCodeTxType
+	AuthorizationList []types.SetCodeAuthorization `json:"authorizationList"`
+
 	// This configures whether blobs are allowed to be passed.
-	// blobSidecarAllowed bool
+	blobSidecarAllowed bool
 }
 
 // from retrieves the transaction sender address.
@@ -148,7 +154,7 @@ func (args *TransactionArgs) CallDefaults(globalGasCap uint64, baseFee *big.Int,
 // core evm. This method is used in calls and traces that do not require a real
 // live transaction.
 // Assumes that fields are not nil, i.e. setDefaults or CallDefaults has been called.
-func (args *TransactionArgs) ToMessage(baseFee *big.Int) *core.Message {
+func (args *TransactionArgs) ToMessage(baseFee *big.Int, skipNonceCheck, skipEoACheck bool) *core.Message {
 	var (
 		gasPrice  *big.Int
 		gasFeeCap *big.Int
@@ -170,7 +176,10 @@ func (args *TransactionArgs) ToMessage(baseFee *big.Int) *core.Message {
 			// Backfill the legacy gasPrice for EVM execution, unless we're all zeroes
 			gasPrice = new(big.Int)
 			if gasFeeCap.BitLen() > 0 || gasTipCap.BitLen() > 0 {
-				gasPrice = math.BigMin(new(big.Int).Add(gasTipCap, baseFee), gasFeeCap)
+				gasPrice = gasPrice.Add(gasTipCap, baseFee)
+				if gasPrice.Cmp(gasFeeCap) > 0 {
+					gasPrice = gasFeeCap
+				}
 			}
 		}
 	}
@@ -179,18 +188,21 @@ func (args *TransactionArgs) ToMessage(baseFee *big.Int) *core.Message {
 		accessList = *args.AccessList
 	}
 	return &core.Message{
-		From:              args.from(),
-		To:                args.To,
-		Value:             (*big.Int)(args.Value),
-		GasLimit:          uint64(*args.Gas),
-		GasPrice:          gasPrice,
-		GasFeeCap:         gasFeeCap,
-		GasTipCap:         gasTipCap,
-		Data:              args.data(),
-		AccessList:        accessList,
-		BlobGasFeeCap:     (*big.Int)(args.BlobFeeCap),
-		BlobHashes:        args.BlobHashes,
-		SkipAccountChecks: true,
+		From:                  args.from(),
+		To:                    args.To,
+		Value:                 (*big.Int)(args.Value),
+		Nonce:                 uint64(*args.Nonce),
+		GasLimit:              uint64(*args.Gas),
+		GasPrice:              gasPrice,
+		GasFeeCap:             gasFeeCap,
+		GasTipCap:             gasTipCap,
+		Data:                  args.data(),
+		AccessList:            accessList,
+		BlobGasFeeCap:         (*big.Int)(args.BlobFeeCap),
+		BlobHashes:            args.BlobHashes,
+		SetCodeAuthorizations: args.AuthorizationList,
+		SkipNonceChecks:       skipNonceCheck,
+		SkipFromEOACheck:      skipEoACheck,
 	}
 }
 
@@ -292,7 +304,7 @@ func (diff *StateOverride) Apply(statedb worldstate.MutableWorldState) error {
 	for addr, account := range *diff {
 		// Override account nonce.
 		if account.Nonce != nil {
-			statedb.SetNonce(addr, uint64(*account.Nonce))
+			statedb.SetNonce(addr, uint64(*account.Nonce), tracing.NonceChangeUnspecified)
 		}
 		// Override account(contract) code.
 		if account.Code != nil {

@@ -12,6 +12,7 @@ package worldstate
 
 import (
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -130,19 +131,19 @@ type MutableWorldState interface {
 	CreateContract(common.Address)
 
 	// SubBalance subtracts amount from the account associated with addr.
-	SubBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason)
+	SubBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int
 
 	// AddBalance adds amount to the account associated with addr.
-	AddBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason)
+	AddBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int
 
 	// SetBalance sets the balance of the account associated with addr.
 	SetBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason)
 
 	// SetNonce sets the given nonce to the given address.
-	SetNonce(addr common.Address, nonce uint64)
+	SetNonce(addr common.Address, nonce uint64, reason tracing.NonceChangeReason)
 
-	// SetCode sets the code to the given address.
-	SetCode(addr common.Address, code []byte)
+	// SetCode sets the new code for the address, and returns the previous code, if any.
+	SetCode(addr common.Address, code []byte) []byte
 
 	// SetStorage replaces the entire storage for the specified account with given
 	// storage. This function should only be used for debugging and the mutations
@@ -150,7 +151,7 @@ type MutableWorldState interface {
 	SetStorage(addr common.Address, storage map[common.Hash]common.Hash)
 
 	// SetState sets the value associated with the specific key.
-	SetState(addr common.Address, key common.Hash, val common.Hash)
+	SetState(addr common.Address, key common.Hash, val common.Hash) common.Hash
 
 	// GetCommittedState retrieves the value associated with the specific key
 	// without any mutations caused in the current execution.
@@ -179,10 +180,14 @@ type MutableWorldState interface {
 	//
 	// The account's state object is still available until the state is committed,
 	// getStateObject will return a non-nil account after SelfDestruct.
-	SelfDestruct(addr common.Address)
+	SelfDestruct(addr common.Address) uint256.Int
 
-	// SelfDestruct given account according to EIP-6780.
-	Selfdestruct6780(addr common.Address)
+	// SelfDestruct6780 is post-EIP6780 selfdestruct, which means that it's a
+	// send-all-to-beneficiary, unless the contract was created in this same
+	// transaction, in which case it will be destructed.
+	// This method returns the prior balance, along with a boolean which is
+	// true iff the object was indeed destructed.
+	SelfDestruct6780(addr common.Address) (uint256.Int, bool)
 
 	// Check if given account was marked as self-destructed.
 	HasSelfDestructed(addr common.Address) bool
@@ -214,6 +219,9 @@ type MutableWorldState interface {
 
 	// Witness retrieves the current state witness being collected.
 	Witness() *stateless.Witness
+
+	// AccessEvents returns the access events of current state.
+	AccessEvents() *state.AccessEvents
 
 	// Snapshot returns an identifier for the current revision of the state.
 	Snapshot() int

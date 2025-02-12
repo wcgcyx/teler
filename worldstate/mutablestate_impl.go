@@ -15,6 +15,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/stateless"
 	"github.com/ethereum/go-ethereum/core/tracing"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -264,7 +265,7 @@ func (s *mutableStateImpl) Prepare(rules params.Rules, sender, coinbase common.A
 	// log.Debugf("precompiles: %v", precompiles)
 	// log.Debugf("txAccesses: %v", txAccesses)
 
-	// Adapted from go-ethereum@v1.14.8/core/state/statedb.go
+	// Adapted from go-ethereum@v1.15.0/core/state/statedb.go
 	if rules.IsEIP2929 && rules.IsEIP4762 {
 		log.Panicf("eip2929 and eip4762 are both activated")
 	}
@@ -324,7 +325,7 @@ func (s *mutableStateImpl) CreateContract(addr common.Address) {
 }
 
 // SubBalance subtracts amount from the account associated with addr.
-func (s *mutableStateImpl) SubBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) {
+func (s *mutableStateImpl) SubBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	// log.Debugf("Mutable - SubBalance(%v, %v)", addr, amt)
 	// defer func() { log.Debugf("Mutable - SubBalance(%v, %v) returns void", addr, amt) }()
 
@@ -339,10 +340,11 @@ func (s *mutableStateImpl) SubBalance(addr common.Address, amt *uint256.Int, rea
 	if s.logger != nil && s.logger.OnBalanceChange != nil {
 		s.logger.OnBalanceChange(addr, original.ToBig(), new.ToBig(), reason)
 	}
+	return *original
 }
 
 // AddBalance adds amount to the account associated with addr.
-func (s *mutableStateImpl) AddBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) {
+func (s *mutableStateImpl) AddBalance(addr common.Address, amt *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	// log.Debugf("Mutable - AddBalance(%v, %v)", addr, amt)
 	// defer func() { log.Debugf("Mutable - AddBalance(%v, %v) returns void", addr, amt) }()
 
@@ -354,6 +356,7 @@ func (s *mutableStateImpl) AddBalance(addr common.Address, amt *uint256.Int, rea
 	if s.logger != nil && s.logger.OnBalanceChange != nil {
 		s.logger.OnBalanceChange(addr, original.ToBig(), new.ToBig(), reason)
 	}
+	return *original
 }
 
 // SetBalance sets the balance of the account associated with addr.
@@ -372,32 +375,32 @@ func (s *mutableStateImpl) SetBalance(addr common.Address, amt *uint256.Int, rea
 }
 
 // SetNonce sets the given nonce to the given address.
-func (s *mutableStateImpl) SetNonce(addr common.Address, nonce uint64) {
+func (s *mutableStateImpl) SetNonce(addr common.Address, nonce uint64, reason tracing.NonceChangeReason) {
 	// log.Debugf("Mutable - SetNonce(%v, %v)", addr, nonce)
 	// defer func() { log.Debugf("Mutable - SetNonce(%v, %v) returns void", addr, nonce) }()
 
 	acct := s.loadAccount(addr, true)
 
 	if s.logger != nil && s.logger.OnNonceChange != nil {
-		s.logger.OnNonceChange(addr, acct.Nonce(), nonce)
+		s.logger.OnNonceChangeV2(addr, acct.Nonce(), nonce, reason)
 	}
 
 	s.recordJournal(acct.SetNonce(nonce))
 }
 
 // SetCode sets the code to the given address.
-func (s *mutableStateImpl) SetCode(addr common.Address, code []byte) {
+func (s *mutableStateImpl) SetCode(addr common.Address, code []byte) []byte {
 	// log.Debugf("Mutable - SetCode(%v, %v)", addr, code)
 	// defer func() { log.Debugf("Mutable - SetCode(%v, %v) returns void", addr, code) }()
 
 	acct := s.loadAccount(addr, true)
-
+	prevcode := acct.Code()
 	if s.logger != nil && s.logger.OnCodeChange != nil {
-		prevcode := acct.Code()
 		s.logger.OnCodeChange(addr, acct.CodeHash(), prevcode, crypto.Keccak256Hash(code), code)
 	}
 
 	s.recordJournal(acct.SetCode(code))
+	return prevcode
 }
 
 // SetStorage replaces the entire storage for the specified account with given
@@ -412,18 +415,18 @@ func (s *mutableStateImpl) SetStorage(addr common.Address, storage map[common.Ha
 }
 
 // SetState sets the value associated with the specific key.
-func (s *mutableStateImpl) SetState(addr common.Address, key common.Hash, val common.Hash) {
+func (s *mutableStateImpl) SetState(addr common.Address, key common.Hash, val common.Hash) common.Hash {
 	// log.Debugf("Mutable - SetState(%v, %v, %v)", addr, key, val)
 	// defer func() { log.Debugf("Mutable - SetState(%v, %v, %v) returns void", addr, key, val) }()
 
 	acct := s.loadAccount(addr, true)
-
+	prev := acct.GetState(key)
 	if s.logger != nil && s.logger.OnStorageChange != nil {
-		prev := acct.GetState(key)
 		s.logger.OnStorageChange(addr, key, prev, val)
 	}
 
 	s.recordJournal(acct.SetState(key, val))
+	return prev
 }
 
 // GetCommittedState retrieves the value associated with the specific key
@@ -525,29 +528,36 @@ func (s *mutableStateImpl) HasSelfDestructed(addr common.Address) (destructed bo
 //
 // The account's state object is still available until the state is committed,
 // getStateObject will return a non-nil account after SelfDestruct.
-func (s *mutableStateImpl) SelfDestruct(addr common.Address) {
+func (s *mutableStateImpl) SelfDestruct(addr common.Address) uint256.Int {
 	// log.Debugf("Mutable - SelfDestruct(%v)", addr)
 	// defer func() { log.Debugf("Mutable - SelfDestruct(%v) returns void", addr) }()
 
 	acct := s.loadAccount(addr, true)
-
-	if s.logger != nil && s.logger.OnBalanceChange != nil && acct.Balance().Sign() > 0 {
-		s.logger.OnBalanceChange(addr, acct.Balance().ToBig(), big.NewInt(0), tracing.BalanceDecreaseSelfdestruct)
+	original := uint256.NewInt(0).Set(acct.Balance())
+	if s.logger != nil && s.logger.OnBalanceChange != nil && original.Sign() > 0 {
+		s.logger.OnBalanceChange(addr, original.ToBig(), big.NewInt(0), tracing.BalanceDecreaseSelfdestruct)
 	}
 
 	s.recordJournal(acct.SelfDestruct())
+	return *original
 }
 
-// SelfDestruct given account according to EIP-6780.
-func (s *mutableStateImpl) Selfdestruct6780(addr common.Address) {
-	// log.Debugf("Mutable - Selfdestruct6780(%v)", addr)
+// SelfDestruct6780 is post-EIP6780 selfdestruct, which means that it's a
+// send-all-to-beneficiary, unless the contract was created in this same
+// transaction, in which case it will be destructed.
+// This method returns the prior balance, along with a boolean which is
+// true iff the object was indeed destructed.
+func (s *mutableStateImpl) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
+	// log.Debugf("Mutable - SelfDestruct6780(%v)", addr)
 	// defer func() { log.Debugf("Mutable - Selfdestruct6780(%v) returns void", addr) }()
 
 	acct := s.loadAccount(addr, true)
+	original := uint256.NewInt(0).Set(acct.Balance())
 	_, ok := s.NewContracts[addr]
 	if ok {
 		acct.SelfDestruct()
 	}
+	return *original, ok
 }
 
 // AddressInAccessList returns true if the given address is in the access list.
@@ -682,6 +692,15 @@ func (s *mutableStateImpl) AddPreimage(key common.Hash, val []byte) {
 func (s *mutableStateImpl) Witness() *stateless.Witness {
 	// log.Debugf("Mutable - Witness()")
 	// defer func() { log.Debugf("Mutable - Witness() returns nil") }()
+
+	// Not supported.
+	return nil
+}
+
+// AccessEvents returns the access events of current state.
+func (s *mutableStateImpl) AccessEvents() *state.AccessEvents {
+	// log.Debugf("Mutable - AccessEvents()")
+	// defer func() { log.Debugf("Mutable - AccessEvents() returns nil") }()
 
 	// Not supported.
 	return nil

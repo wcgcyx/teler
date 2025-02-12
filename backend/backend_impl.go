@@ -149,7 +149,7 @@ func (b *BackendImpl) ImportBlock(ctx context.Context, blk *types.Block, prvBlk 
 		b.timeTaken = 0
 	}
 	// Send event
-	b.chainHeadFeed.Send(core.ChainHeadEvent{Block: blk})
+	b.chainHeadFeed.Send(core.ChainHeadEvent{Header: blk.Header()})
 	return nil
 }
 

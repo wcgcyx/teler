@@ -31,8 +31,8 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.14.8/internal/ethapi/api.go
-// 		go-ethereum@v1.14.8/gasestimator/gasestimator.go
+// 		go-ethereum@v1.15.0/internal/ethapi/api.go
+// 		go-ethereum@v1.15.0/gasestimator/gasestimator.go
 
 const estimateGasErrorRatio = 0.015
 
@@ -58,7 +58,7 @@ func DoEstimateGas(ctx context.Context, be backend.Backend, args TransactionArgs
 	// Construct the gas estimator option from the user input
 	opts := &estimateOptions{
 		Config:     be.ChainConfig(),
-		Chain:      processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine),
+		Chain:      processor.NewChainContext(ctx, be.Blockchain(), be.Processor().Engine, be.ChainConfig()),
 		Header:     header,
 		State:      state,
 		ErrorRatio: estimateGasErrorRatio,
@@ -71,7 +71,7 @@ func DoEstimateGas(ctx context.Context, be backend.Backend, args TransactionArgs
 	if err := args.CallDefaults(gasCap, header.BaseFee, be.ChainConfig().ChainID); err != nil {
 		return 0, err
 	}
-	call := args.ToMessage(header.BaseFee)
+	call := args.ToMessage(header.BaseFee, true, true)
 
 	// Run the gas estimation and wrap any revertals into a custom return
 	estimate, revert, err := Estimate(ctx, call, opts, gasCap)
@@ -255,11 +255,10 @@ func execute(ctx context.Context, call *core.Message, opts *estimateOptions, gas
 func run(ctx context.Context, call *core.Message, opts *estimateOptions) (*core.ExecutionResult, error) {
 	// Assemble the call and the call context
 	var (
-		msgContext = core.NewEVMTxContext(call)
 		evmContext = core.NewEVMBlockContext(opts.Header, opts.Chain, nil)
 
 		dirtyState = opts.State.Copy()
-		evm        = vm.NewEVM(evmContext, msgContext, dirtyState, opts.Config, vm.Config{NoBaseFee: true})
+		evm        = vm.NewEVM(evmContext, dirtyState, opts.Config, vm.Config{NoBaseFee: true})
 	)
 	// Monitor the outer context and interrupt the EVM upon cancellation. To avoid
 	// a dangling goroutine until the outer estimation finishes, create an internal
