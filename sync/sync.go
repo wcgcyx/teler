@@ -31,23 +31,56 @@ func ForwardSync(ctx context.Context, b backend.Backend, blkSrc BlockSource, tar
 		return err
 	}
 	log.Infof("Start forward sync from %v to %v", prvBlk.NumberU64(), target)
-	for i := prvBlk.NumberU64() + 1; i <= target; i++ {
-		if ctx.Err() != nil {
+
+	// Use a separate go routine to pull blocks
+	blkChan := make(chan *types.Block, 100)
+	errChan := make(chan error, 1)
+	defer close(errChan)
+
+	go func(start uint64, target uint64) {
+		defer close(blkChan)
+		for i := start; i <= target; i++ {
+			select {
+			case <-ctx.Done():
+				log.Warnf("Sync cancelled while fetching blocks, current height %v", i)
+				return
+			default:
+				blk, err := blkSrc.BlockByNumber(ctx, big.NewInt(int64(i)))
+				if err != nil {
+					log.Errorf("Failed to fetch block %v: %v", i, err)
+					errChan <- err
+					return
+				}
+				select {
+				case blkChan <- blk:
+				case <-ctx.Done():
+					return
+				}
+			}
+		}
+	}(prvBlk.NumberU64()+1, target)
+
+	// Process blocks
+	for prvBlk.NumberU64() < target {
+		select {
+		case err := <-errChan:
+			return err
+		case <-ctx.Done():
+			log.Warnf("Sync cancelled while importing blocks, last height %v", prvBlk.NumberU64())
 			return ctx.Err()
+		case blk, ok := <-blkChan:
+			if !ok {
+				return nil
+			}
+			err = b.ImportBlock(ctx, blk, prvBlk)
+			if err != nil {
+				log.Errorf("Fail to import block %v-%v: %v", blk.NumberU64(), blk.Hash(), err.Error())
+				return err
+			}
+			prvBlk = blk
 		}
-		// Obtain block from source
-		blk, err := blkSrc.BlockByNumber(ctx, big.NewInt(int64(i)))
-		if err != nil {
-			return err
-		}
-		// Import block
-		err = b.ImportBlock(ctx, blk, prvBlk)
-		if err != nil {
-			log.Errorf("Fail to import block %v-%v: %v", blk.NumberU64(), blk.Hash(), err.Error())
-			return err
-		}
-		prvBlk = blk
 	}
+
 	return nil
 }
 
