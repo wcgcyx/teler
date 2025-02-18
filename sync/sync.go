@@ -35,10 +35,10 @@ func ForwardSync(ctx context.Context, b backend.Backend, blkSrc BlockSource, tar
 	// Use a separate go routine to pull blocks
 	blkChan := make(chan *types.Block, 100)
 	errChan := make(chan error, 1)
+	defer close(errChan)
 
 	go func(start uint64, target uint64) {
 		defer close(blkChan)
-		defer close(errChan)
 		for i := start; i <= target; i++ {
 			select {
 			case <-ctx.Done():
