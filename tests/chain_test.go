@@ -40,7 +40,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.0/core/blockchain_test.go
+// 		go-ethereum@v1.15.2/core/blockchain_test.go
 
 // Logger
 var log = logging.Logger("tests")

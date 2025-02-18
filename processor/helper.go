@@ -137,7 +137,7 @@ func ApplyTransaction(msg *core.Message, gp *core.GasPool, worldState worldstate
 
 	// Set the receipt logs and create the bloom filter.
 	receipt.Logs = worldState.GetLogs(tx.Hash(), blockNumber.Uint64(), blockHash)
-	receipt.Bloom = types.CreateBloom(types.Receipts{receipt})
+	receipt.Bloom = types.CreateBloom(receipt)
 	receipt.BlockHash = blockHash
 	receipt.BlockNumber = blockNumber
 	receipt.TransactionIndex = uint(worldState.TxIndex())

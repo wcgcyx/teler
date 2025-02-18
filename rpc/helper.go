@@ -36,9 +36,9 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.0/internal/ethapi/api.go
-//		go-ethereum@v1.15.0/internal/ethapi/transaction_args.go
-// 		go-ethereum@v1.15.0/internal/ethapi/errors.go
+// 		go-ethereum@v1.15.2/internal/ethapi/api.go
+//		go-ethereum@v1.15.2/internal/ethapi/transaction_args.go
+// 		go-ethereum@v1.15.2/internal/ethapi/errors.go
 
 // TransactionArgs represents the arguments to construct a new transaction
 // or a message call.

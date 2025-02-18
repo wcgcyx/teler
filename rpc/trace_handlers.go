@@ -26,7 +26,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.0/eth/tracers/api.go
+// 		go-ethereum@v1.15.2/eth/tracers/api.go
 
 // traceAPIHandler is used to handle trace API.
 type traceAPIHandler struct {
