@@ -27,8 +27,8 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.0/internal/ethapi/api.go
-// 		go-ethereum@v1.15.0/eth/gasprice/gasprice.go
+// 		go-ethereum@v1.15.2/internal/ethapi/api.go
+// 		go-ethereum@v1.15.2/eth/gasprice/gasprice.go
 
 type feeHistoryResult struct {
 	OldestBlock      *hexutil.Big     `json:"oldestBlock"`

@@ -47,7 +47,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.0/eth/tracers/api_test.go
+// 		go-ethereum@v1.15.2/eth/tracers/api_test.go
 
 const (
 	testDS = "./test-ds"

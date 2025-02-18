@@ -4,7 +4,7 @@ go 1.22.6
 
 require (
 	github.com/dgraph-io/badger/v2 v2.2007.3
-	github.com/ethereum/go-ethereum v1.15.1
+	github.com/ethereum/go-ethereum v1.15.2
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/holiman/uint256 v1.3.2
 	github.com/ipfs/go-datastore v0.6.0

@@ -20,7 +20,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.0/core/block_validator.go
+// 		go-ethereum@v1.15.2/core/block_validator.go
 // Adapted code have been commented below.
 
 // Validate validates the given block against the receipts and gas used.
@@ -31,7 +31,7 @@ func Validate(chainConfig *params.ChainConfig, block *types.Block, receipts type
 	}
 	// Validate the received block's bloom with the one derived from the generated receipts.
 	// For valid blocks this should always validate to true.
-	rbloom := types.CreateBloom(receipts)
+	rbloom := types.MergeBloom(receipts)
 	if rbloom != header.Bloom {
 		return fmt.Errorf("invalid bloom (remote: %x  local: %x)", header.Bloom, rbloom)
 	}

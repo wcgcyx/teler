@@ -32,7 +32,7 @@ var log = logging.Logger("processor")
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.0/core/state_processor.go
+// 		go-ethereum@v1.15.2/core/state_processor.go
 // Adapted code have been commented below.
 // When merge from upstream, perform check from Process() function below.
 
