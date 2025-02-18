@@ -35,10 +35,10 @@ func ForwardSync(ctx context.Context, b backend.Backend, blkSrc BlockSource, tar
 	// Use a separate go routine to pull blocks
 	blkChan := make(chan *types.Block, 100)
 	errChan := make(chan error, 1)
-	defer close(errChan)
 
 	go func(start uint64, target uint64) {
 		defer close(blkChan)
+		defer close(errChan)
 		for i := start; i <= target; i++ {
 			select {
 			case <-ctx.Done():
@@ -63,8 +63,10 @@ func ForwardSync(ctx context.Context, b backend.Backend, blkSrc BlockSource, tar
 	// Process blocks
 	for prvBlk.NumberU64() < target {
 		select {
-		case err := <-errChan:
-			return err
+		case err, ok := <-errChan:
+			if ok && err != nil {
+				return err
+			}
 		case <-ctx.Done():
 			log.Warnf("Sync cancelled while importing blocks, last height %v", prvBlk.NumberU64())
 			return ctx.Err()
