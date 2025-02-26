@@ -1,10 +1,12 @@
 module github.com/wcgcyx/teler
 
-go 1.22.6
+go 1.23.0
+
+toolchain go1.23.6
 
 require (
 	github.com/dgraph-io/badger/v2 v2.2007.3
-	github.com/ethereum/go-ethereum v1.15.2
+	github.com/ethereum/go-ethereum v1.15.3
 	github.com/hashicorp/golang-lru/v2 v2.0.7
 	github.com/holiman/uint256 v1.3.2
 	github.com/ipfs/go-datastore v0.6.0
@@ -12,8 +14,8 @@ require (
 	github.com/ipfs/go-log v1.0.5
 	github.com/mus-format/mus-go v0.2.1
 	github.com/spf13/viper v1.3.2
-	github.com/stretchr/testify v1.9.0
-	github.com/urfave/cli/v2 v2.25.7
+	github.com/stretchr/testify v1.10.0
+	github.com/urfave/cli/v2 v2.27.5
 	github.com/wcgcyx/go-jsonrpc v0.0.0-20241111120636-2de9cf271678
 	go.uber.org/mock v0.5.0
 )
@@ -28,7 +30,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/consensys/bavard v0.1.22 // indirect
 	github.com/consensys/gnark-crypto v0.14.0 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
+	github.com/cpuguy83/go-md2man/v2 v2.0.5 // indirect
 	github.com/crate-crypto/go-ipa v0.0.0-20240724233137-53bbb0ceb27a // indirect
 	github.com/crate-crypto/go-kzg-4844 v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -83,7 +85,7 @@ require (
 	github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
-	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
+	github.com/xrash/smetrics v0.0.0-20240521201337-686a1a2994c1 // indirect
 	go.opencensus.io v0.22.4 // indirect
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
