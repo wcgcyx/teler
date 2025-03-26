@@ -31,8 +31,8 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.2/internal/ethapi/api.go
-// 		go-ethereum@v1.15.2/gasestimator/gasestimator.go
+// 		go-ethereum@v1.15.6/internal/ethapi/api.go
+// 		go-ethereum@v1.15.6/gasestimator/gasestimator.go
 
 const estimateGasErrorRatio = 0.015
 

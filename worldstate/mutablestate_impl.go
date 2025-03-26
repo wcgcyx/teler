@@ -265,7 +265,7 @@ func (s *mutableStateImpl) Prepare(rules params.Rules, sender, coinbase common.A
 	// log.Debugf("precompiles: %v", precompiles)
 	// log.Debugf("txAccesses: %v", txAccesses)
 
-	// Adapted from go-ethereum@v1.15.2/core/state/statedb.go
+	// Adapted from go-ethereum@v1.15.6/core/state/statedb.go
 	if rules.IsEIP2929 && rules.IsEIP4762 {
 		log.Panicf("eip2929 and eip4762 are both activated")
 	}

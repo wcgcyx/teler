@@ -28,7 +28,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.2/internal/ethapi/api.go
+// 		go-ethereum@v1.15.6/internal/ethapi/api.go
 
 // ethAPIHandler is used to handle eth API.
 type ethAPIHandler struct {
