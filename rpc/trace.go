@@ -32,7 +32,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.2/eth/tracers/api.go
+// 		go-ethereum@v1.15.6/eth/tracers/api.go
 
 const (
 	// defaultTraceTimeout is the amount of time a single transaction can execute

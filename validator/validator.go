@@ -20,7 +20,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.2/core/block_validator.go
+// 		go-ethereum@v1.15.6/core/block_validator.go
 // Adapted code have been commented below.
 
 // Validate validates the given block against the receipts and gas used.

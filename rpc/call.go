@@ -28,7 +28,7 @@ import (
 
 // Note:
 // This is adapted from:
-// 		go-ethereum@v1.15.2/internal/ethapi/api.go
+// 		go-ethereum@v1.15.6/internal/ethapi/api.go
 
 func DoCall(ctx context.Context, be backend.Backend, args TransactionArgs, blockNrOrHash rpc.BlockNumberOrHash, overrides *StateOverride, blockOverrides *BlockOverrides, timeout time.Duration, globalGasCap uint64) (*core.ExecutionResult, error) {
 	defer func(start time.Time) { log.Debug("Executing EVM call finished", "runtime", time.Since(start)) }(time.Now())
